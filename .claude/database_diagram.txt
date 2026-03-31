@@ -1,0 +1,171 @@
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║           DIAGRAMA DE RELACIONES - BASE DE DATOS PATIO SUR              ║
+║                          MySQL: Proyectos                                ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+                              ┌──────────────┐
+                              │    users     │
+                              │  (8 campos)  │
+                              └──────────────┘
+                                     △
+                                     │ auth
+                                     │
+
+                    ┌──────────────────────────────┐
+                    │       projects (12 campos)   │
+                    │  PK: id                      │
+                    │  UK: code ("OE 1035")        │
+                    │  start: 2025-06-20           │
+                    │  end: 2026-09-16             │
+                    │  budget: 41.0B COP           │
+                    └──────┬───────────────────────┘
+                           │
+            ┌──────────────┼──────────────┬──────────────┬──────────────┐
+            │              │              │              │              │
+    ┌───────▼──────┐ ┌─────▼──────┐ ┌───▼──────────┐ ┌─▼──────────┐ ┌─▼──────────────┐
+    │  wbs_items   │ │ budget_     │ │transactions  │ │ invoices   │ │ cash_flow_     │
+    │ (schedule)   │ │  items      │ │ (income/exp) │ │ (issued +  │ │ entries (flow) │
+    │              │ │             │ │              │ │ received)  │ │                │
+    │ PK: id       │ │ PK: id      │ │ PK: id       │ │ PK: id     │ │ PK: id         │
+    │ FK: project  │ │ FK: project │ │ FK: project  │ │ FK: project│ │ FK: project    │
+    │ FK: parent   │ │ FK: wbs_id  │ │ FK: wbs_id   │ │ UNIQUE:    │ │ UNIQUE:        │
+    │              │ │             │ │ FK: budget   │ │ invoice_#  │ │ (project,year, │
+    │ 15 chapters  │ │ 15 rows     │ │ FK: invoice  │ │            │ │  month, type)  │
+    │ Cronograma   │ │ (Comp.React │ │              │ │ FK: line   │ │                │
+    │              │ │ -37.4% ⚠️)  │ │ 7 transacciones│ │ items      │ │ 11 períodos    │
+    │              │ │             │ │ históricos   │ │ (invoices) │ │ (Oct25-Nov26)  │
+    │              │ │             │ │              │ │            │ │                │
+    └───────┬──────┘ └─────┬──────┘ └───┬──────────┘ └─┬──────────┘ └────────────────┘
+            │              │            │            │
+            └──────────────┼────────────┴────────────┘
+                           │
+                    ┌──────▼──────────┐
+                    │ (FALTA CREAR)   │
+                    │    alerts       │ ← Nueva tabla necesaria
+                    │                 │
+                    │ PK: id          │
+                    │ FK: project     │
+                    │                 │
+                    │ 5 alertas del   │
+                    │ proyecto        │
+                    └─────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+MAPEO: DATOS HARDCODEADOS (Frontend) → TABLAS BD (Backend)
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ ARCHIVO FRONTEND                     TABLA BD              ENDPOINT      │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ProjectsPage.tsx                     projects             /projects      │
+│ - projects array                                                        │
+│   - id, name, code, client_name                                        │
+│   - start_date, estimated_end_date                                    │
+│   - total_budget, status                                               │
+│   - time_progress_percentage                                           │
+│                                                                         │
+│ DashboardPage.tsx                    projects + aggregates /projects/id │
+│ - Header info                        budget_items         /dashboard    │
+│ - KPI cards (CPI, SPI, etc)          cash_flow_entries                  │
+│ - Presupuesto por capítulo                                             │
+│ - Alertas (AlertsPanel)                                                │
+│                                                                         │
+│ AlertsPage.tsx                       alerts (FALTA)       /alerts       │
+│ - alerts array (5 alertas)           NUEVA TABLA                       │
+│                                                                         │
+│ CronogramaPage.tsx                   wbs_items            /wbs          │
+│ - activities array (15 items)        SCHEDULE/TASKS                    │
+│ - S-curve data                                                         │
+│                                                                         │
+│ reportData.ts                        budget_items         /budget       │
+│ - budgetData (15 capítulos)          cash_flow_entries    /cash-flow    │
+│ - budgetTotals                       projects                          │
+│ - cashFlowData (11 períodos)                                          │
+│ - earnedValueData (EVM metrics)                                        │
+│ - procurementData (15 items)                                          │
+│                                                                         │
+│ TransactionsPage (si existe)         transactions         /transactions │
+│ - Ingresos/Egresos                                                    │
+│                                                                         │
+│ InvoicesPage (si existe)             invoices             /invoices     │
+│ - Facturas emitidas/recibidas        invoice_line_items               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════
+
+ENDPOINTS QUE YA EXISTEN (15 routers)
+
+Autenticación (3)
+  ✅ POST   /api/v1/auth/login
+  ✅ POST   /api/v1/auth/logout
+  ✅ GET    /api/v1/auth/me
+
+Proyectos (5)
+  ✅ GET    /api/v1/projects
+  ✅ POST   /api/v1/projects
+  ✅ GET    /api/v1/projects/{project_id}
+  ✅ PUT    /api/v1/projects/{project_id}
+  ✅ DELETE /api/v1/projects/{project_id}
+
+WBS (5)
+  ✅ GET    /api/v1/projects/{project_id}/wbs
+  ✅ POST   /api/v1/projects/{project_id}/wbs
+  ✅ GET    /api/v1/projects/{project_id}/wbs/{wbs_id}
+  ✅ PUT    /api/v1/projects/{project_id}/wbs/{wbs_id}
+  ✅ DELETE /api/v1/projects/{project_id}/wbs/{wbs_id}
+
+Presupuesto (5)
+  ✅ GET    /api/v1/projects/{project_id}/budget
+  ✅ POST   /api/v1/projects/{project_id}/budget
+  ✅ GET    /api/v1/projects/{project_id}/budget/{budget_id}
+  ✅ PUT    /api/v1/projects/{project_id}/budget/{budget_id}
+  ✅ DELETE /api/v1/projects/{project_id}/budget/{budget_id}
+
+Transacciones (5)
+  ✅ GET    /api/v1/projects/{project_id}/transactions
+  ✅ POST   /api/v1/projects/{project_id}/transactions
+  ✅ GET    /api/v1/projects/{project_id}/transactions/{tx_id}
+  ✅ PUT    /api/v1/projects/{project_id}/transactions/{tx_id}
+  ✅ DELETE /api/v1/projects/{project_id}/transactions/{tx_id}
+
+Facturas (5)
+  ✅ GET    /api/v1/projects/{project_id}/invoices
+  ✅ POST   /api/v1/projects/{project_id}/invoices
+  ✅ GET    /api/v1/projects/{project_id}/invoices/{invoice_id}
+  ✅ PUT    /api/v1/projects/{project_id}/invoices/{invoice_id}
+  ✅ DELETE /api/v1/projects/{project_id}/invoices/{invoice_id}
+
+Flujo de Caja (5)
+  ✅ GET    /api/v1/projects/{project_id}/cash-flow
+  ✅ POST   /api/v1/projects/{project_id}/cash-flow
+  ✅ GET    /api/v1/projects/{project_id}/cash-flow/{cf_id}
+  ✅ PUT    /api/v1/projects/{project_id}/cash-flow/{cf_id}
+  ✅ DELETE /api/v1/projects/{project_id}/cash-flow/{cf_id}
+
+Reportes (4)
+  ✅ GET    /api/v1/projects/{project_id}/reports/budget-summary
+  ✅ GET    /api/v1/projects/{project_id}/reports/cash-flow-analysis
+  ✅ GET    /api/v1/projects/{project_id}/reports/earned-value
+  ✅ POST   /api/v1/projects/{project_id}/reports/export
+
+Dashboard (1)
+  ✅ GET    /api/v1/projects/{project_id}/dashboard
+
+TOTAL: 38 endpoints ya implementados
+
+═══════════════════════════════════════════════════════════════════════════
+
+ENDPOINTS QUE FALTAN CREAR (6)
+
+Alertas (6) ← FALTA TABLA + ENDPOINTS
+  ❌ GET    /api/v1/projects/{project_id}/alerts
+  ❌ POST   /api/v1/projects/{project_id}/alerts
+  ❌ GET    /api/v1/projects/{project_id}/alerts/{alert_id}
+  ❌ PUT    /api/v1/projects/{project_id}/alerts/{alert_id}
+  ❌ DELETE /api/v1/projects/{project_id}/alerts/{alert_id}
+  ❌ PATCH  /api/v1/projects/{project_id}/alerts/{alert_id}/resolve
+
+TOTAL PENDIENTES: 6 endpoints
