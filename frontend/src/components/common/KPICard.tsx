@@ -79,7 +79,8 @@ export default function KPICard({
                   'mt-1 text-sm font-semibold',
                   trend === 'up' && 'text-emerald-600',
                   trend === 'down' && 'text-red-600',
-                  trend === 'neutral' && 'text-steel-500',
+                  trend === 'neutral' && variant === 'primary' && 'text-primary-600',
+                  trend === 'neutral' && variant !== 'primary' && 'text-steel-500',
                 )}
               >
                 {trend === 'up' && '+'}{trendValue}
