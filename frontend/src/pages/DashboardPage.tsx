@@ -8,9 +8,10 @@ import {
   AlertTriangle,
   Clock,
   Target,
-  Activity,
   X,
   Loader,
+  BarChart2,
+  CalendarClock,
 } from 'lucide-react';
 import clsx from 'clsx';
 import KPICard from '@/components/common/KPICard';
@@ -159,6 +160,8 @@ export default function DashboardPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [showCPIDetail, setShowCPIDetail] = useState(false);
+  const [showCostoDetail, setShowCostoDetail] = useState(false);
+  const [showSPIDetail, setShowSPIDetail] = useState(false);
 
   const { data: apiData, isLoading, error } = useQuery({
     queryKey: ['dashboard', projectId],
@@ -242,11 +245,12 @@ export default function DashboardPage() {
         <KPICard
           title="Costo Real (ACWP)"
           value={formatCOP(data.earned_value.actual_cost)}
-          subtitle={`${data.budget_summary.consumption_percentage}% ejecutado`}
+          subtitle={`${data.budget_summary.consumption_percentage}% ejecutado · Ver costo estimado`}
           icon={TrendingDown}
           trend={data.budget_summary.consumption_percentage > 90 ? 'down' : 'neutral'}
           trendValue={`${data.budget_summary.consumption_percentage}%`}
           variant={data.budget_summary.consumption_percentage > 95 ? 'danger' : 'default'}
+          onClick={() => setShowCostoDetail(true)}
         />
         <KPICard
           title="CPI Contractual (Referencia)"
@@ -260,33 +264,27 @@ export default function DashboardPage() {
         <KPICard
           title="SPI (Indice Cronograma)"
           value={`${data.earned_value.spi.toFixed(2)} / ${data.earned_value.spi_contractual.toFixed(2)}`}
-          subtitle={`Revisado: ${data.earned_value.spi >= 1 ? 'En tiempo' : 'Retrasado'} | Contractual: -27%`}
+          subtitle={`Revisado: en tiempo | Contractual: -27% · Ver detalle`}
           icon={Clock}
           trend={data.earned_value.spi_contractual >= 1 ? 'up' : 'down'}
           variant={'warning'}
+          onClick={() => setShowSPIDetail(true)}
         />
       </div>
 
       {/* Second KPI Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KPICard
-          title="Valor Ganado (BCWP)"
-          value={formatCOP(data.earned_value.earned_value_amount)}
-          subtitle="52.2% avance fisico (Curva S 19 mar)"
-          icon={Activity}
-          variant="default"
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
         <KPICard
           title="EAC (Costo Estimado Final)"
           value={formatCOP(data.earned_value.eac)}
-          subtitle={`VAC: ${formatCOP(data.earned_value.bac - data.earned_value.eac)}`}
+          subtitle={`VAC: ${formatCOP(data.earned_value.bac - data.earned_value.eac)} — Utilidad proyectada ${margenProyectado.toFixed(1)}%`}
           icon={TrendingUp}
           variant={data.earned_value.eac > data.earned_value.bac ? 'warning' : 'success'}
         />
         <KPICard
           title="Alertas Activas"
           value={data.alerts.length}
-          subtitle={`${data.alerts.filter((a) => a.severity === 'critical').length} criticas`}
+          subtitle={`${data.alerts.filter((a) => a.severity === 'critical').length} criticas · Ver todas`}
           icon={AlertTriangle}
           variant={data.alerts.some((a) => a.severity === 'critical') ? 'danger' : 'warning'}
           onClick={() => navigate(`/projects/${projectId}/alerts`)}
@@ -417,6 +415,274 @@ export default function DashboardPage() {
           </table>
         </div>
       </div>
+
+      {/* Costo Real Detail Modal */}
+      {showCostoDetail && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setShowCostoDetail(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowCostoDetail(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-steel-200 bg-gradient-to-r from-steel-800 to-steel-700 rounded-t-2xl">
+                <div>
+                  <h3 className="text-base font-bold text-white">Costo Real vs Costo Estimado a Terminacion</h3>
+                  <p className="text-xs text-steel-300 mt-0.5">Fuente: Patio Sur_.xlsx + Caso de Negocio (Pagos Proyeccion)</p>
+                </div>
+                <button onClick={() => setShowCostoDetail(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-white transition">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              {/* Content */}
+              <div className="p-6 space-y-5">
+                {/* Main comparison cards */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-xl border-2 border-steel-300 bg-steel-50 p-4 text-center">
+                    <p className="text-[10px] font-semibold text-steel-500 uppercase tracking-wider">Costo Real (ACWP)</p>
+                    <p className="text-[10px] text-steel-400 mb-1">Lo que se ha gastado hoy</p>
+                    <p className="text-3xl font-black text-steel-800">{formatCOP(data.earned_value.actual_cost)}</p>
+                    <p className="text-xs text-steel-500 mt-1 font-medium">{data.budget_summary.consumption_percentage}% del presupuesto</p>
+                  </div>
+                  <div className="rounded-xl border-2 border-primary-300 bg-primary-50 p-4 text-center">
+                    <p className="text-[10px] font-semibold text-primary-600 uppercase tracking-wider">Costo Estimado Final (EAC)</p>
+                    <p className="text-[10px] text-primary-400 mb-1">Proyeccion bottom-up al cierre</p>
+                    <p className="text-3xl font-black text-primary-800">{formatCOP(eacBottomUp)}</p>
+                    <p className="text-xs text-primary-600 mt-1 font-medium">Fuente: Caso de Negocio</p>
+                  </div>
+                </div>
+
+                {/* Desglose Costo Real */}
+                <div>
+                  <p className="text-xs font-bold text-steel-700 mb-2 flex items-center gap-1.5">
+                    <BarChart2 className="h-3.5 w-3.5 text-steel-500" /> Desglose del Costo Real Acumulado
+                  </p>
+                  <table className="w-full text-xs">
+                    <tbody className="divide-y divide-steel-100">
+                      <tr className="hover:bg-steel-50">
+                        <td className="py-2 text-steel-600">Materiales (compras OC)</td>
+                        <td className="py-2 text-right font-semibold text-steel-800">{formatCOP(7552521315)}</td>
+                        <td className="py-2 text-right text-steel-400">88.5%</td>
+                      </tr>
+                      <tr className="hover:bg-steel-50">
+                        <td className="py-2 text-steel-600">Administrativos y generales</td>
+                        <td className="py-2 text-right font-semibold text-steel-800">{formatCOP(500000000)}</td>
+                        <td className="py-2 text-right text-steel-400">5.9%</td>
+                      </tr>
+                      <tr className="hover:bg-steel-50">
+                        <td className="py-2 text-steel-600">Otros pagos realizados</td>
+                        <td className="py-2 text-right font-semibold text-steel-800">{formatCOP(478000000)}</td>
+                        <td className="py-2 text-right text-steel-400">5.6%</td>
+                      </tr>
+                      <tr className="bg-steel-50 font-semibold">
+                        <td className="py-2 text-steel-700">Total Ejecutado (ACWP)</td>
+                        <td className="py-2 text-right text-steel-900">{formatCOP(data.earned_value.actual_cost)}</td>
+                        <td className="py-2 text-right text-steel-600">100%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Proyeccion de costo total */}
+                <div>
+                  <p className="text-xs font-bold text-steel-700 mb-2 flex items-center gap-1.5">
+                    <BarChart2 className="h-3.5 w-3.5 text-primary-500" /> Proyeccion Costo Total a Terminacion (EAC)
+                  </p>
+                  <table className="w-full text-xs">
+                    <tbody className="divide-y divide-steel-100">
+                      <tr className="hover:bg-steel-50">
+                        <td className="py-2 text-steel-600">Materiales</td>
+                        <td className="py-2 text-right font-semibold text-steel-800">{formatCOP(21511513454)}</td>
+                        <td className="py-2 text-right text-steel-400">85.5%</td>
+                      </tr>
+                      <tr className="hover:bg-steel-50">
+                        <td className="py-2 text-steel-600">Mano de Obra</td>
+                        <td className="py-2 text-right font-semibold text-steel-800">{formatCOP(1681443883)}</td>
+                        <td className="py-2 text-right text-steel-400">6.7%</td>
+                      </tr>
+                      <tr className="hover:bg-steel-50">
+                        <td className="py-2 text-steel-600">Administrativos</td>
+                        <td className="py-2 text-right font-semibold text-steel-800">{formatCOP(772769364)}</td>
+                        <td className="py-2 text-right text-steel-400">3.1%</td>
+                      </tr>
+                      <tr className="hover:bg-steel-50">
+                        <td className="py-2 text-steel-600 text-red-500">Intereses credito puente</td>
+                        <td className="py-2 text-right font-semibold text-red-600">{formatCOP(3158392500)}</td>
+                        <td className="py-2 text-right text-steel-400">4.7%</td>
+                      </tr>
+                      <tr className="border-t-2 border-primary-200 bg-primary-50 font-bold">
+                        <td className="py-2.5 text-primary-800">EAC Total (Caso de Negocio)</td>
+                        <td className="py-2.5 text-right text-primary-900">{formatCOP(eacBottomUp)}</td>
+                        <td className="py-2.5 text-right text-primary-700">100%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Vs presupuesto */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-xl bg-steel-50 border border-steel-200 p-3 text-center">
+                    <p className="text-[10px] text-steel-400 font-medium uppercase">Presupuesto Directo</p>
+                    <p className="text-lg font-bold text-steel-700 mt-1">{formatCOP(costoPresupuestado)}</p>
+                    <p className="text-[10px] text-steel-400">Caso de Negocio</p>
+                  </div>
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-center">
+                    <p className="text-[10px] text-emerald-600 font-medium uppercase">Ahorro Proyectado</p>
+                    <p className="text-lg font-bold text-emerald-700 mt-1">{formatCOP(ahorroTotal)}</p>
+                    <p className="text-[10px] text-emerald-500">vs presupuesto</p>
+                  </div>
+                  <div className="rounded-xl bg-primary-50 border border-primary-200 p-3 text-center">
+                    <p className="text-[10px] text-primary-600 font-medium uppercase">Utilidad Proyectada</p>
+                    <p className="text-lg font-bold text-primary-800 mt-1">{margenProyectado.toFixed(1)}%</p>
+                    <p className="text-[10px] text-primary-400">vs 28.2% original</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-[11px] text-amber-800 font-semibold">Nota Gerencial</p>
+                  <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
+                    Los valores proyectados del <strong>Costo Estimado Final (EAC)</strong> provienen del Caso de Negocio (Pagos Proyeccion Patio Sur). El costo real actual representa solo el <strong>{data.budget_summary.consumption_percentage}%</strong> del total proyectado — el grueso de los pagos de materiales esta programado entre Abr–Sep 2026.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* SPI Detail Modal */}
+      {showSPIDetail && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setShowSPIDetail(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowSPIDetail(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-steel-200 bg-gradient-to-r from-amber-700 to-amber-600 rounded-t-2xl">
+                <div>
+                  <h3 className="text-base font-bold text-white">SPI — Indice de Rendimiento del Cronograma</h3>
+                  <p className="text-xs text-amber-200 mt-0.5">Real vs Proyectado (Caso de Negocio · Curva S 19 mar)</p>
+                </div>
+                <button onClick={() => setShowSPIDetail(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-white transition">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              {/* Content */}
+              <div className="p-6 space-y-5">
+                {/* Two SPI Cards */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4 text-center">
+                    <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">SPI Real</p>
+                    <p className="text-[10px] text-emerald-500 mb-1">vs Linea Base Revisada (19 Mar)</p>
+                    <p className="text-4xl font-black text-emerald-700">{data.earned_value.spi.toFixed(2)}</p>
+                    <p className="text-xs text-emerald-600 mt-2 font-bold bg-emerald-100 rounded-lg px-2 py-1">✓ En Tiempo</p>
+                    <p className="text-[10px] text-emerald-600 mt-1">EV $21,416M / PV $21,285M</p>
+                  </div>
+                  <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 text-center">
+                    <p className="text-[10px] font-semibold text-red-600 uppercase tracking-wider">SPI Contractual</p>
+                    <p className="text-[10px] text-red-400 mb-1">vs Linea Base Original (27 Nov)</p>
+                    <p className="text-4xl font-black text-red-700">{data.earned_value.spi_contractual.toFixed(2)}</p>
+                    <p className="text-xs text-red-600 mt-2 font-bold bg-red-100 rounded-lg px-2 py-1">⚠ 27% Atrasado</p>
+                    <p className="text-[10px] text-red-500 mt-1">EV $21,416M / PV~$29,338M</p>
+                  </div>
+                </div>
+
+                {/* Timeline comparison */}
+                <div>
+                  <p className="text-xs font-bold text-steel-700 mb-3 flex items-center gap-1.5">
+                    <CalendarClock className="h-3.5 w-3.5 text-steel-500" /> Comparativo de Cronogramas
+                  </p>
+                  <div className="space-y-3">
+                    {/* Base Revisada */}
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-bold text-emerald-700">Linea Base Revisada (Re-Baseline)</p>
+                        <span className="text-[10px] bg-emerald-100 text-emerald-700 font-semibold rounded px-2 py-0.5">SPI = 1.01</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-[10px]">
+                        <div>
+                          <p className="text-steel-400">Inicio</p>
+                          <p className="font-semibold text-steel-700">20 Jun 2025</p>
+                        </div>
+                        <div>
+                          <p className="text-steel-400">Duracion</p>
+                          <p className="font-semibold text-steel-700">453 dias</p>
+                        </div>
+                        <div>
+                          <p className="text-steel-400">Fin Revisado</p>
+                          <p className="font-semibold text-emerald-700">16 Sep 2026</p>
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <div className="flex justify-between text-[10px] text-steel-500 mb-1">
+                          <span>Avance planificado (S-40)</span>
+                          <span className="font-semibold">51.9%</span>
+                        </div>
+                        <div className="w-full bg-steel-100 rounded-full h-2 overflow-hidden">
+                          <div className="bg-emerald-500 h-full rounded-full" style={{ width: '51.9%' }} />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-steel-500 mt-1 mb-1">
+                          <span>Avance real (S-40, 25 Mar 2026)</span>
+                          <span className="font-semibold text-emerald-700">52.2%</span>
+                        </div>
+                        <div className="w-full bg-steel-100 rounded-full h-2 overflow-hidden">
+                          <div className="bg-emerald-600 h-full rounded-full" style={{ width: '52.2%' }} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Base Original */}
+                    <div className="rounded-lg border border-red-200 bg-red-50/60 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-bold text-red-700">Linea Base Original (Contractual)</p>
+                        <span className="text-[10px] bg-red-100 text-red-700 font-semibold rounded px-2 py-0.5">SPI = 0.73</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-[10px]">
+                        <div>
+                          <p className="text-steel-400">Inicio</p>
+                          <p className="font-semibold text-steel-700">20 Jun 2025</p>
+                        </div>
+                        <div>
+                          <p className="text-steel-400">Duracion Original</p>
+                          <p className="font-semibold text-steel-700">405 dias</p>
+                        </div>
+                        <div>
+                          <p className="text-steel-400">Fin Original</p>
+                          <p className="font-semibold text-red-700">30 Jul 2026</p>
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <div className="flex justify-between text-[10px] text-steel-500 mb-1">
+                          <span>Avance que deberia tener hoy</span>
+                          <span className="font-semibold">~71.5%</span>
+                        </div>
+                        <div className="w-full bg-steel-100 rounded-full h-2 overflow-hidden">
+                          <div className="bg-red-200 h-full rounded-full" style={{ width: '71.5%' }} />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-steel-500 mt-1 mb-1">
+                          <span>Avance real vs base original</span>
+                          <span className="font-semibold text-red-700">52.2%</span>
+                        </div>
+                        <div className="w-full bg-steel-100 rounded-full h-2 overflow-hidden">
+                          <div className="bg-red-500 h-full rounded-full" style={{ width: '52.2%' }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Re-baseline info */}
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
+                  <p className="text-xs font-bold text-amber-800">Re-Baseline: +48 dias</p>
+                  <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
+                    El cronograma fue re-baselineado por <strong>problemas financieros de PC Mejia</strong> (retraso en inicio de actividades). La nueva linea base revisada (19 Mar 2026) extiende el plazo de 405 a 453 dias, moviendo el fin del <strong>30 Jul 2026</strong> al <strong>16 Sep 2026</strong>. La fecha contractual con Consorcio Express sigue siendo <strong>3 Jul 2026</strong>.
+                  </p>
+                  <p className="text-[10px] text-amber-600 mt-2 font-semibold">
+                    Los valores proyectados del cronograma provienen del Caso de Negocio y la Curva S (19 mar).
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* CPI Detail Modal */}
       {showCPIDetail && (
