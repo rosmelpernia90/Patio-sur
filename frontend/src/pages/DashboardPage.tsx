@@ -248,7 +248,7 @@ export default function DashboardPage() {
           icon={TrendingDown}
           trend={data.budget_summary.consumption_percentage > 90 ? 'down' : 'neutral'}
           trendValue={`${data.budget_summary.consumption_percentage}%`}
-          variant={data.budget_summary.consumption_percentage > 95 ? 'danger' : 'default'}
+          variant={data.budget_summary.consumption_percentage > 95 ? 'danger' : 'primary'}
           onClick={() => setShowCostoDetail(true)}
         />
         <KPICard
@@ -280,6 +280,7 @@ export default function DashboardPage() {
           icon={AlertTriangle}
           variant={data.alerts.some((a) => a.severity === 'critical') ? 'danger' : 'warning'}
           onClick={() => navigate(`/projects/${projectId}/alerts`)}
+          centered
         />
       </div>
 
