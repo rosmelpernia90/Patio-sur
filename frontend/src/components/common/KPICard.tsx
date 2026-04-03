@@ -24,7 +24,7 @@ const variantStyles = {
 
 const iconStyles = {
   default: 'bg-primary-50 text-primary-600',
-  primary: 'bg-primary-50 text-primary-600',
+  primary: 'bg-primary-100 text-primary-600',
   success: 'bg-emerald-50 text-emerald-600',
   warning: 'bg-amber-50 text-amber-600',
   danger:  'bg-red-50 text-red-600',
