@@ -39,25 +39,22 @@ function forceLogout() {
 }
 
 // Request interceptor: attach JWT token from localStorage
-// If the token is a demo token, skip attaching it (backend won't accept it)
+// Demo tokens are not sent to the backend (backend won't accept them)
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('pcm_access_token');
-  if (token) {
-    if (isDemoToken(token)) {
-      // Demo token detected — force re-login so backend issues a real token
-      forceLogout();
-      return Promise.reject(new Error('Demo token inválido. Por favor inicia sesión de nuevo.'));
-    }
+  if (token && !isDemoToken(token)) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
 // Response interceptor: handle 401 (expired/invalid token)
+// In demo mode (no backend), do NOT force logout — let callers handle the error gracefully
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const token = localStorage.getItem('pcm_access_token');
+    if (error.response?.status === 401 && !isDemoToken(token ?? '')) {
       forceLogout();
     }
     return Promise.reject(error);
