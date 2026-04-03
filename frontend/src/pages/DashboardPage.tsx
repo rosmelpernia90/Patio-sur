@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   DollarSign,
-  TrendingUp,
   TrendingDown,
   AlertTriangle,
   Clock,
@@ -272,19 +271,12 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Second KPI Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-2">
-        <KPICard
-          title="EAC (Costo Estimado Final)"
-          value={formatCOP(data.earned_value.eac)}
-          subtitle={`VAC: ${formatCOP(data.earned_value.bac - data.earned_value.eac)} — Utilidad proyectada ${margenProyectado.toFixed(1)}%`}
-          icon={TrendingUp}
-          variant={data.earned_value.eac > data.earned_value.bac ? 'warning' : 'success'}
-        />
+      {/* Alertas — fila completa */}
+      <div>
         <KPICard
           title="Alertas Activas"
           value={data.alerts.length}
-          subtitle={`${data.alerts.filter((a) => a.severity === 'critical').length} criticas · Ver todas`}
+          subtitle={`${data.alerts.filter((a) => a.severity === 'critical').length} criticas · ${data.alerts.filter((a) => a.severity === 'warning').length} advertencias · ${data.alerts.filter((a) => a.severity === 'info').length} informativas`}
           icon={AlertTriangle}
           variant={data.alerts.some((a) => a.severity === 'critical') ? 'danger' : 'warning'}
           onClick={() => navigate(`/projects/${projectId}/alerts`)}
