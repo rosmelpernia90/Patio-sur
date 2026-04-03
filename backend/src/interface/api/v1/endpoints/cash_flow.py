@@ -16,7 +16,7 @@ from src.infrastructure.database.models.cash_flow_model import CashFlowEntryMode
 router = APIRouter()
 
 
-@router.get("/", response_model=List[CashFlowEntryResponse])
+@router.get("", response_model=List[CashFlowEntryResponse])
 async def list_cash_flow(
     project_id: str,
     db: AsyncSession = Depends(get_db_session),
@@ -31,7 +31,7 @@ async def list_cash_flow(
     return result.scalars().all()
 
 
-@router.post("/", response_model=CashFlowEntryResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CashFlowEntryResponse, status_code=status.HTTP_201_CREATED)
 async def create_cash_flow_entry(
     project_id: str,
     data: CashFlowEntryCreate,

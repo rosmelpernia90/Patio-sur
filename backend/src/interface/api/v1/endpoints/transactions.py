@@ -16,7 +16,7 @@ from src.infrastructure.database.models.transaction_model import TransactionMode
 router = APIRouter()
 
 
-@router.get("/", response_model=List[TransactionResponse])
+@router.get("", response_model=List[TransactionResponse])
 async def list_transactions(
     project_id: str,
     transaction_type: Optional[str] = Query(None, description="Filter: 'income' or 'expense'"),
@@ -36,7 +36,7 @@ async def list_transactions(
     return result.scalars().all()
 
 
-@router.post("/", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 async def create_transaction(
     project_id: str,
     data: TransactionCreate,

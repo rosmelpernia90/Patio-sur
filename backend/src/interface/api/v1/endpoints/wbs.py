@@ -12,7 +12,7 @@ from src.infrastructure.database.models.wbs_model import WBSItemModel
 router = APIRouter()
 
 
-@router.get("/", response_model=List[WBSItemResponse])
+@router.get("", response_model=List[WBSItemResponse])
 async def list_wbs_items(
     project_id: str,
     db: AsyncSession = Depends(get_db_session),
@@ -27,7 +27,7 @@ async def list_wbs_items(
     return result.scalars().all()
 
 
-@router.post("/", response_model=WBSItemResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=WBSItemResponse, status_code=status.HTTP_201_CREATED)
 async def create_wbs_item(
     project_id: str,
     data: WBSItemCreate,

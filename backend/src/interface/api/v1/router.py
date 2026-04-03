@@ -11,6 +11,8 @@ from src.interface.api.v1.endpoints.cash_flow import router as cash_flow_router
 from src.interface.api.v1.endpoints.alerts import router as alerts_router
 from src.interface.api.v1.endpoints.reports import router as reports_router
 from src.interface.api.v1.endpoints.dashboard import router as dashboard_router
+from src.interface.api.v1.endpoints.documents import router as documents_router
+from src.interface.api.v1.endpoints.preferences import router as preferences_router
 
 api_v1_router = APIRouter()
 
@@ -24,3 +26,5 @@ api_v1_router.include_router(cash_flow_router, prefix="/projects/{project_id}/ca
 api_v1_router.include_router(alerts_router, prefix="/projects/{project_id}/alerts", tags=["Alerts"])
 api_v1_router.include_router(reports_router, prefix="/projects/{project_id}/reports", tags=["Reports"])
 api_v1_router.include_router(dashboard_router, prefix="/projects/{project_id}/dashboard", tags=["Dashboard"])
+api_v1_router.include_router(documents_router)
+api_v1_router.include_router(preferences_router)

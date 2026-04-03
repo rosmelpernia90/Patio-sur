@@ -75,6 +75,7 @@ app = FastAPI(
     version=settings.APP_VERSION,
     description="Sistema de Gestión de Proyectos de Obra Eléctrica - Control Financiero y Operativo",
     lifespan=lifespan,
+    redirect_slashes=False,
 )
 
 # CORS

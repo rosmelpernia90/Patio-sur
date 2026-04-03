@@ -16,7 +16,7 @@ from src.infrastructure.database.models.project_model import ProjectModel
 router = APIRouter()
 
 
-@router.get("/", response_model=List[ProjectSummaryResponse])
+@router.get("", response_model=List[ProjectSummaryResponse])
 async def list_projects(
     skip: int = 0,
     limit: int = 50,
@@ -30,7 +30,7 @@ async def list_projects(
     return projects
 
 
-@router.post("/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 async def create_project(
     data: ProjectCreate,
     db: AsyncSession = Depends(get_db_session),

@@ -18,7 +18,7 @@ from src.infrastructure.database.models.alert_model import AlertModel
 router = APIRouter()
 
 
-@router.get("/", response_model=List[AlertResponse])
+@router.get("", response_model=List[AlertResponse])
 async def list_alerts(
     project_id: str,
     skip: int = 0,
@@ -38,7 +38,7 @@ async def list_alerts(
     return alerts
 
 
-@router.post("/", response_model=AlertResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=AlertResponse, status_code=status.HTTP_201_CREATED)
 async def create_alert(
     project_id: str,
     data: AlertCreate,

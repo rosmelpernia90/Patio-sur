@@ -22,7 +22,7 @@ from src.infrastructure.database.models.cash_flow_model import CashFlowEntryMode
 router = APIRouter()
 
 
-@router.get("/", response_model=dict)
+@router.get("", response_model=dict)
 async def get_dashboard(
     project_id: str,
     db: AsyncSession = Depends(get_db_session),

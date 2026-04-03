@@ -156,15 +156,101 @@ const saleStructure = [
   { name: 'Financiación', value: 3077349397, color: '#8b8e96' },
 ];
 
-// Chart data for top chapters comparison
-const chartComparison = costoVsVenta
-  .filter(c => c.costo > 500000000)
-  .map(c => ({
-    name: c.cap.length > 18 ? c.cap.substring(0, 18) + '...' : c.cap,
-    Venta: c.venta,
-    Costo: c.costo,
-    Margen: c.venta - c.costo,
-  }));
+// ── Grouped data: Estructura General — Venta vs Costo ──
+// Groups aligned to the Excel "PATIO SUR RESUMEN - CASO DE NEGOCIO"
+const estructuraGeneral = [
+  {
+    grupo: 'Est. y Conexiones',
+    venta: 419047180 + 519268407,
+    costo: 312727205 + 369435063,
+    detalle: [
+      { cap: 'Estudios y Diseños', venta: 419047180, costo: 312727205 },
+      { cap: 'Conexión a la Red', venta: 519268407, costo: 369435063 },
+    ],
+  },
+  {
+    grupo: 'Redes MT / SE',
+    venta: 2893959054 + 3406137000,
+    costo: 2046582157 + 2692179338,
+    detalle: [
+      { cap: 'Redes MT (Celdas)', venta: 2893959054, costo: 2046582157 },
+      { cap: 'Subestaciones (SE)', venta: 3406137000, costo: 2692179338 },
+    ],
+  },
+  {
+    grupo: 'Transformadores / BT',
+    venta: 2338037308 + 3856386116,
+    costo: 2115002279 + 2864635880,
+    detalle: [
+      { cap: 'Transformadores', venta: 2338037308, costo: 2115002279 },
+      { cap: 'Baja Tensión (BT)', venta: 3856386116, costo: 2864635880 },
+    ],
+  },
+  {
+    grupo: 'SPE / SPT',
+    venta: 262823529,
+    costo: 257800000,
+    detalle: [{ cap: 'SPE y SPT', venta: 262823529, costo: 257800000 }],
+  },
+  {
+    grupo: 'Comunicaciones',
+    venta: 701469115,
+    costo: 264839198,
+    detalle: [{ cap: 'Comunicaciones', venta: 701469115, costo: 264839198 }],
+  },
+  {
+    grupo: 'Sum. Cargadores',
+    venta: 6743603237,
+    costo: 5330376000,
+    detalle: [{ cap: 'Suministro Cargadores', venta: 6743603237, costo: 5330376000 }],
+  },
+  {
+    grupo: 'Inst. y Servicios',
+    venta: 261567164 + 147984032,
+    costo: 191000000 + 125786428,
+    detalle: [
+      { cap: 'Instalación Cargadores', venta: 261567164, costo: 191000000 },
+      { cap: 'ILU y Servicios Aux', venta: 147984032, costo: 125786428 },
+    ],
+  },
+  {
+    grupo: 'Compensación',
+    venta: 547200000,
+    costo: 751864128,
+    detalle: [{ cap: 'Comp. Reactiva', venta: 547200000, costo: 751864128 }],
+  },
+  {
+    grupo: 'Det. Incendios',
+    venta: 270082618,
+    costo: 227943849,
+    detalle: [{ cap: 'Detección Incendios', venta: 270082618, costo: 227943849 }],
+  },
+  {
+    grupo: 'Obras Civiles',
+    venta: 8177142400,
+    costo: 6537881527,
+    detalle: [{ cap: 'Obras Civiles y Redes', venta: 8177142400, costo: 6537881527 }],
+  },
+  {
+    grupo: 'Trámites',
+    venta: 679896358,
+    costo: 186229084,
+    detalle: [{ cap: 'Trámites y Certificaciones', venta: 679896358, costo: 186229084 }],
+  },
+];
+
+const totalVentaDirecta = estructuraGeneral.reduce((s, g) => s + g.venta, 0);
+const totalCostoDirecto = estructuraGeneral.reduce((s, g) => s + g.costo, 0);
+
+// Chart data — grouped bars
+const chartEstructura = estructuraGeneral.map(g => ({
+  name: g.grupo,
+  Venta: g.venta,
+  Costo: g.costo,
+  diferencia: g.venta - g.costo,
+  margen: g.venta > 0 ? ((g.venta - g.costo) / g.venta * 100) : 0,
+  detalle: g.detalle,
+}));
 
 // Procurement chart
 const procurementChart = gestionCompra
@@ -263,40 +349,125 @@ export default function BusinessCasePage() {
         </div>
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Cost vs Sale Chart */}
-        <div className="rounded-xl border border-steel-200 bg-white p-6 shadow-card">
-          <h3 className="text-base font-bold text-steel-800 mb-4">Venta vs Costo por Capitulo</h3>
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={chartComparison} margin={{ bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ecedef" />
-              <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#6e7179' }} angle={-35} textAnchor="end" height={80} />
-              <YAxis tickFormatter={(v) => formatB(v)} tick={{ fontSize: 10, fill: '#6e7179' }} />
-              <Tooltip formatter={(v: number) => formatCOPDisplay(v)} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="Venta" fill="#1b5eab" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Costo" fill="#8b8e96" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+      {/* ── Estructura General: Venta vs Costo ── */}
+      <div className="rounded-xl border border-steel-200 bg-white p-6 shadow-card">
+        <div className="mb-5">
+          <h3 className="text-base font-bold text-steel-800">Estructura General — Venta vs Costo por Grupo</h3>
+          <p className="text-xs text-steel-400 mt-0.5">Analisis ejecutivo de oferta mercantil vs costo del caso de negocio agrupado por categoria</p>
         </div>
 
-        {/* Procurement Status Chart */}
-        <div className="rounded-xl border border-steel-200 bg-white p-6 shadow-card">
-          <h3 className="text-base font-bold text-steel-800 mb-4">Gestion de Compra vs Caso de Negocio</h3>
-          <ResponsiveContainer width="100%" height={350}>
-            <BarChart data={procurementChart} margin={{ bottom: 60 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ecedef" />
-              <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#6e7179' }} angle={-35} textAnchor="end" height={80} />
-              <YAxis tickFormatter={(v) => formatB(v)} tick={{ fontSize: 10, fill: '#6e7179' }} />
-              <Tooltip formatter={(v: number) => formatCOPDisplay(v)} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="Caso de Negocio" fill="#b5b8be" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Negociado" fill="#16a34a" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Pendiente" fill="#d97706" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        <ResponsiveContainer width="100%" height={420}>
+          <BarChart data={chartEstructura} margin={{ top: 10, right: 20, bottom: 80, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ecedef" vertical={false} />
+            <XAxis
+              dataKey="name"
+              tick={{ fontSize: 10, fill: '#4a4d56', fontWeight: 600 }}
+              angle={-40}
+              textAnchor="end"
+              height={90}
+              interval={0}
+            />
+            <YAxis
+              tickFormatter={(v) => formatB(v)}
+              tick={{ fontSize: 10, fill: '#6e7179' }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              content={({ active, payload }) => {
+                if (!active || !payload || payload.length === 0) return null;
+                const d = payload[0]?.payload;
+                if (!d) return null;
+                const dif = d.Venta - d.Costo;
+                const margen = d.Venta > 0 ? ((dif / d.Venta) * 100) : 0;
+                const isNeg = dif < 0;
+                return (
+                  <div className="bg-white rounded-lg shadow-xl border border-steel-200 p-4 max-w-xs">
+                    <p className="text-xs font-bold text-steel-900 mb-2 border-b border-steel-100 pb-2">{d.name}</p>
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between gap-6">
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#1b5eab]" /> Venta (Oferta)</span>
+                        <span className="font-bold">{formatCOPDisplay(d.Venta)}</span>
+                      </div>
+                      <div className="flex justify-between gap-6">
+                        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[#94a3b8]" /> Costo (Caso Neg.)</span>
+                        <span className="font-bold">{formatCOPDisplay(d.Costo)}</span>
+                      </div>
+                      <div className="border-t border-steel-200 pt-1.5 flex justify-between gap-6">
+                        <span className="font-semibold">Diferencia</span>
+                        <span className={clsx('font-bold', isNeg ? 'text-red-600' : 'text-emerald-600')}>
+                          {isNeg ? '-' : '+'} {formatCOPDisplay(Math.abs(dif))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-6">
+                        <span className="font-semibold">Margen</span>
+                        <span className={clsx('font-bold', isNeg ? 'text-red-600' : margen < 10 ? 'text-amber-600' : 'text-emerald-600')}>
+                          {margen.toFixed(1)}%
+                        </span>
+                      </div>
+                      {d.detalle && d.detalle.length > 1 && (
+                        <div className="border-t border-steel-100 pt-1.5 mt-1">
+                          <p className="text-[10px] text-steel-400 font-semibold mb-1">DESGLOSE:</p>
+                          {d.detalle.map((dd: { cap: string; venta: number; costo: number }) => (
+                            <div key={dd.cap} className="flex justify-between text-[10px] text-steel-500">
+                              <span className="truncate mr-2">{dd.cap}</span>
+                              <span>{formatB(dd.venta)} / {formatB(dd.costo)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              }}
+            />
+            <Legend
+              wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+              formatter={(value: string) => (
+                <span className="text-xs font-semibold text-steel-600">{value === 'Venta' ? 'Oferta Mercantil' : 'Costo Caso Negocio'}</span>
+              )}
+            />
+            <Bar dataKey="Venta" fill="#1b5eab" radius={[5, 5, 0, 0]} barSize={28} />
+            <Bar dataKey="Costo" fill="#94a3b8" radius={[5, 5, 0, 0]} barSize={28} />
+          </BarChart>
+        </ResponsiveContainer>
+
+        {/* Summary KPIs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-steel-100">
+          <div className="bg-blue-50 rounded-lg px-3 py-2 text-center">
+            <p className="text-[10px] text-steel-500 font-semibold uppercase tracking-wide">Total Oferta</p>
+            <p className="text-xs font-bold text-primary-700 mt-0.5">{formatCOPDisplay(totalVentaDirecta)}</p>
+          </div>
+          <div className="bg-steel-50 rounded-lg px-3 py-2 text-center">
+            <p className="text-[10px] text-steel-500 font-semibold uppercase tracking-wide">Total Costo</p>
+            <p className="text-xs font-bold text-steel-800 mt-0.5">{formatCOPDisplay(totalCostoDirecto)}</p>
+          </div>
+          <div className="bg-emerald-50 rounded-lg px-3 py-2 text-center">
+            <p className="text-[10px] text-steel-500 font-semibold uppercase tracking-wide">Diferencia</p>
+            <p className="text-xs font-bold text-emerald-600 mt-0.5">{formatCOPDisplay(totalVentaDirecta - totalCostoDirecto)}</p>
+          </div>
+          <div className="bg-emerald-50 rounded-lg px-3 py-2 text-center">
+            <p className="text-[10px] text-steel-500 font-semibold uppercase tracking-wide">Margen</p>
+            <p className="text-xs font-bold text-emerald-600 mt-0.5">{((totalVentaDirecta - totalCostoDirecto) / totalVentaDirecta * 100).toFixed(1)}%</p>
+          </div>
         </div>
+      </div>
+
+      {/* Procurement Chart */}
+      <div className="rounded-xl border border-steel-200 bg-white p-6 shadow-card">
+        <h3 className="text-base font-bold text-steel-800 mb-4">Gestion de Compra vs Caso de Negocio</h3>
+        <ResponsiveContainer width="100%" height={380}>
+          <BarChart data={procurementChart} margin={{ bottom: 70, left: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ecedef" vertical={false} />
+            <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#6e7179' }} angle={-35} textAnchor="end" height={80} interval={0} />
+            <YAxis tickFormatter={(v) => formatB(v)} tick={{ fontSize: 10, fill: '#6e7179' }} axisLine={false} tickLine={false} />
+            <Tooltip formatter={(v: number) => formatCOPDisplay(v)} />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
+            <Bar dataKey="Caso de Negocio" fill="#b5b8be" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Negociado" fill="#16a34a" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="Pendiente" fill="#d97706" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Cost Structure Pies */}

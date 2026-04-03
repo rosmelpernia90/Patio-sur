@@ -17,7 +17,7 @@ from src.infrastructure.database.models.invoice_model import InvoiceModel, Invoi
 router = APIRouter()
 
 
-@router.get("/", response_model=List[InvoiceResponse])
+@router.get("", response_model=List[InvoiceResponse])
 async def list_invoices(
     project_id: str,
     invoice_type: Optional[str] = None,
@@ -34,7 +34,7 @@ async def list_invoices(
     return result.scalars().all()
 
 
-@router.post("/", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=InvoiceResponse, status_code=status.HTTP_201_CREATED)
 async def create_invoice(
     project_id: str,
     data: InvoiceCreate,

@@ -17,14 +17,14 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,
-        // When accessed via ngrok domain, rewrite target to match
+        // Follow 307 redirects server-side so ngrok clients never see localhost URLs
         configure: (proxy) => {
-          proxy.on('proxyReq', (proxyReq, req) => {
-            // If request came through ngrok, try to use the ngrok-exposed backend
-            if (req.headers.host?.includes('ngrok')) {
-              // This is a workaround: modify the header to tell the proxy to use the ngrok backend URL
-              // However, the best solution is to set up a separate ngrok tunnel for the backend
-              // For now, we rely on the proxy accepting requests from localhost
+          proxy.on('proxyRes', (proxyRes, _req, _res) => {
+            if (proxyRes.statusCode === 307 && proxyRes.headers.location) {
+              const loc = proxyRes.headers.location;
+              // Rewrite location to be relative (strip http://localhost:8000)
+              const relative = loc.replace(/^https?:\/\/[^/]+/, '');
+              proxyRes.headers.location = relative;
             }
           });
         },

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { formatCOP, formatCOPFull } from '@/utils/formatNumbers';
 import {
@@ -7,6 +7,7 @@ import {
   ChevronDown, ChevronRight, Plus, Minus, DollarSign,
   Bell, Edit3, Check, X, Users, Briefcase, Package,
   Droplets, Zap, Target, TrendingUp, Calendar, Lightbulb,
+  Paperclip, FileText, Trash2,
 } from 'lucide-react';
 import CashFlowChart from '@/components/dashboard/CashFlowChart';
 import HelpButton from '@/components/common/HelpButton';
@@ -355,8 +356,73 @@ const formatShort = formatCOP;
 export default function CashFlowPage() {
   useParams();
 
-  // State
+  // ── Server-side persistence helpers ──
+  const savePref = (key: string, data: unknown) => {
+    fetch(`/api/v1/preferences/${key}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).catch(() => {});
+  };
+
+  const DEFAULT_INCOMES: IncomeEntry[] = [
+    { id: 'ING-FEB', label: 'Ingreso recibido Feb 2026', monto: 16745324700, editable: true },
+    { id: 'ING-ESC1', label: 'Escenario ingreso adicional 1', monto: 0, editable: true, isScenario: true },
+    { id: 'ING-ESC2', label: 'Escenario ingreso adicional 2', monto: 0, editable: true, isScenario: true },
+  ];
+  const DEFAULT_CREDIT = {
+    desembolso: 17000000000,
+    tasaInteres: 13.66,
+    gmfPorcentaje: 0.395,
+    comisionPorcentaje: 1.1,
+    mesesCredito: 12,
+  };
+
+  // ── Payment items state ──
   const [items, setItems] = useState<PaymentItem[]>(INITIAL_ITEMS);
+  const [incomes, setIncomes] = useState<IncomeEntry[]>(DEFAULT_INCOMES);
+  const [creditParams, setCreditParams] = useState(DEFAULT_CREDIT);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
+
+  // Load preferences from server on mount
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/v1/preferences/payment_items').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/api/v1/preferences/incomes').then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch('/api/v1/preferences/credit_params').then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([savedItems, savedIncomes, savedCredit]) => {
+      if (savedItems && Array.isArray(savedItems) && savedItems.length > 0) {
+        setItems(INITIAL_ITEMS.map(base => {
+          const s = savedItems.find((p: { id: string }) => p.id === base.id);
+          return s ? { ...base, grupo: s.grupo, incluido: s.incluido } : base;
+        }));
+      }
+      if (savedIncomes && Array.isArray(savedIncomes) && savedIncomes.length > 0) {
+        setIncomes(savedIncomes);
+      }
+      if (savedCredit && typeof savedCredit === 'object' && savedCredit.desembolso !== undefined) {
+        setCreditParams(savedCredit);
+      }
+      setPrefsLoaded(true);
+    });
+  }, []);
+
+  // Save to server whenever state changes (skip initial load)
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    savePref('payment_items', items.map(i => ({ id: i.id, grupo: i.grupo, incluido: i.incluido })));
+  }, [items, prefsLoaded]);
+
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    savePref('incomes', incomes);
+  }, [incomes, prefsLoaded]);
+
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    savePref('credit_params', creditParams);
+  }, [creditParams, prefsLoaded]);
+
   const [expandedGroups, setExpandedGroups] = useState<Record<GroupId, boolean>>({
     materiales: true,
     mano_obra: true,
@@ -364,23 +430,8 @@ export default function CashFlowPage() {
   });
   const [dragItem, setDragItem] = useState<string | null>(null);
 
-  // Income management
-  const [incomes, setIncomes] = useState<IncomeEntry[]>([
-    { id: 'ING-FEB', label: 'Ingreso recibido Feb 2026', monto: 16745324700, editable: true },
-    { id: 'ING-ESC1', label: 'Escenario ingreso adicional 1', monto: 0, editable: true, isScenario: true },
-    { id: 'ING-ESC2', label: 'Escenario ingreso adicional 2', monto: 0, editable: true, isScenario: true },
-  ]);
   const [editingIncome, setEditingIncome] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-
-  // Parámetros del crédito (Préstamo puente)
-  const [creditParams, setCreditParams] = useState({
-    desembolso: 17000000000,        // 17 mil millones
-    tasaInteres: 13.66,              // 13.66% EA (Efectiva Anual)
-    gmfPorcentaje: 0.395,            // 0.395% GMF (Gravamen Movimiento Financiero)
-    comisionPorcentaje: 1.1,         // 1.1% comisión del banco
-    mesesCredito: 12,                // 12 meses plazo del crédito
-  });
 
   const [showCreditModal, setShowCreditModal] = useState(false);
 
@@ -500,6 +551,59 @@ export default function CashFlowPage() {
 
   const [showAlerts, setShowAlerts] = useState(false);
   const [selectedMonthDetail, setSelectedMonthDetail] = useState<string | null>(null);
+
+  // ── Filtros de tabla ──
+  interface TableFilters { proveedor: string; concepto: string; estado: string; }
+  const emptyFilters: TableFilters = { proveedor: '', concepto: '', estado: '' };
+  const [tableFilters, setTableFilters] = useState<Record<GroupId, TableFilters>>({
+    materiales: { ...emptyFilters },
+    mano_obra: { ...emptyFilters },
+    administracion: { ...emptyFilters },
+  });
+  const setFilter = (groupId: GroupId, key: keyof TableFilters, value: string) =>
+    setTableFilters(prev => ({ ...prev, [groupId]: { ...prev[groupId], [key]: value } }));
+  const clearFilters = (groupId: GroupId) =>
+    setTableFilters(prev => ({ ...prev, [groupId]: { ...emptyFilters } }));
+  const hasFilters = (groupId: GroupId) =>
+    Object.values(tableFilters[groupId]).some(v => v !== '');
+
+  // ── Contratos ──
+  interface ContratoInfo { filename: string; previewable: boolean; }
+  const [contratos, setContratos] = useState<Record<string, ContratoInfo>>({});
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [previewContrato, setPreviewContrato] = useState<{ itemId: string; filename: string } | null>(null);
+
+  // Load existing contracts from backend on mount
+  useEffect(() => {
+    fetch('/api/v1/documents/contratos')
+      .then(r => r.ok ? r.json() : {})
+      .then((data: Record<string, { filename: string; previewable: boolean }>) => {
+        if (Object.keys(data).length > 0) setContratos(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleUploadContrato = async (itemId: string, file: File) => {
+    setUploadingId(itemId);
+    const form = new FormData();
+    form.append('item_id', itemId);
+    form.append('file', file);
+    try {
+      const res = await fetch('/api/v1/documents/upload-contrato', { method: 'POST', body: form });
+      if (!res.ok) throw new Error('Error al subir');
+      const data = await res.json();
+      setContratos(prev => ({ ...prev, [itemId]: { filename: data.original_name, previewable: data.previewable } }));
+    } catch {
+      alert('Error al subir el contrato. Intente de nuevo.');
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handleDeleteContrato = async (itemId: string) => {
+    await fetch(`/api/v1/documents/contrato/${itemId}`, { method: 'DELETE' });
+    setContratos(prev => { const n = { ...prev }; delete n[itemId]; return n; });
+  };
 
   // ── Handlers ──
   const toggleGroup = (g: GroupId) =>
@@ -1635,7 +1739,15 @@ export default function CashFlowPage() {
         {(Object.keys(GROUP_CONFIG) as GroupId[]).map((groupId) => {
           const config = GROUP_CONFIG[groupId];
           const Icon = config.icon;
-          const groupItems = items.filter((i) => i.grupo === groupId);
+          const f = tableFilters[groupId];
+          const groupItems = items.filter((i) => {
+            if (i.grupo !== groupId) return false;
+            if (f.proveedor && !i.proveedor.toLowerCase().includes(f.proveedor.toLowerCase())) return false;
+            if (f.concepto && !i.concepto.toLowerCase().includes(f.concepto.toLowerCase())) return false;
+            if (f.estado && i.estado !== f.estado) return false;
+            return true;
+          });
+          const allGroupItems = items.filter((i) => i.grupo === groupId);
           const isExpanded = expandedGroups[groupId];
           const gt = groupTotals[groupId];
 
@@ -1689,10 +1801,62 @@ export default function CashFlowPage() {
                         <th className="px-3 py-2 text-right text-yellow-600 font-bold">Por Pagar</th>
                         <th className="px-3 py-2 text-center text-steel-500 font-semibold">Estado</th>
                         <th className="px-3 py-2 text-center text-steel-500 font-semibold">Grupo</th>
+                        <th className="px-3 py-2 text-center text-steel-500 font-semibold w-28">Contrato</th>
                         {groupId === 'administracion' && (
                           <th className="px-3 py-2 text-center text-steel-500 font-semibold w-16">Inc.</th>
                         )}
                       </tr>
+                      {/* Filter row */}
+                      <tr className="bg-white border-b border-steel-100">
+                        <td className="px-2 py-1.5 text-center">
+                          {hasFilters(groupId) && (
+                            <button onClick={() => clearFilters(groupId)} title="Limpiar filtros" className="text-steel-300 hover:text-red-400 transition">
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <input
+                            type="text"
+                            placeholder="Buscar..."
+                            value={tableFilters[groupId].proveedor}
+                            onChange={e => setFilter(groupId, 'proveedor', e.target.value)}
+                            className="w-full text-[10px] border border-steel-200 rounded px-2 py-1 focus:outline-none focus:border-primary-400 placeholder-steel-300"
+                          />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          <input
+                            type="text"
+                            placeholder="Buscar..."
+                            value={tableFilters[groupId].concepto}
+                            onChange={e => setFilter(groupId, 'concepto', e.target.value)}
+                            className="w-full text-[10px] border border-steel-200 rounded px-2 py-1 focus:outline-none focus:border-primary-400 placeholder-steel-300"
+                          />
+                        </td>
+                        <td /><td /><td />
+                        <td className="px-2 py-1.5">
+                          <select
+                            value={tableFilters[groupId].estado}
+                            onChange={e => setFilter(groupId, 'estado', e.target.value)}
+                            className="w-full text-[10px] border border-steel-200 rounded px-1.5 py-1 focus:outline-none focus:border-primary-400 bg-white text-steel-600"
+                          >
+                            <option value="">Todos</option>
+                            <option value="pagado">Pagado</option>
+                            <option value="parcial">Parcial</option>
+                            <option value="por_negociar">Por negociar</option>
+                            <option value="pendiente">Pendiente</option>
+                          </select>
+                        </td>
+                        <td /><td />
+                        {groupId === 'administracion' && <td />}
+                      </tr>
+                      {hasFilters(groupId) && (
+                        <tr className="bg-primary-50/50">
+                          <td colSpan={groupId === 'administracion' ? 10 : 9} className="px-3 py-1 text-[10px] text-primary-600">
+                            Mostrando {groupItems.length} de {allGroupItems.length} items
+                          </td>
+                        </tr>
+                      )}
                     </thead>
                     <tbody className="divide-y divide-steel-50">
                       {groupItems.map((item) => {
@@ -1749,6 +1913,48 @@ export default function CashFlowPage() {
                                   <option key={g} value={g}>{GROUP_CONFIG[g].label.split(' ')[0]}</option>
                                 ))}
                               </select>
+                            </td>
+                            <td className="px-3 py-2.5 text-center">
+                              {contratos[item.id] ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => setPreviewContrato({ itemId: item.id, filename: contratos[item.id].filename })}
+                                    className="flex items-center gap-1 text-[10px] text-primary-600 hover:text-primary-800 bg-primary-50 border border-primary-200 rounded-md px-1.5 py-0.5 max-w-[90px] truncate transition"
+                                    title={`Ver: ${contratos[item.id].filename}`}
+                                  >
+                                    <FileText className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate">{contratos[item.id].filename}</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteContrato(item.id)}
+                                    className="p-0.5 rounded hover:bg-red-100 text-steel-300 hover:text-red-500 transition"
+                                    title="Eliminar contrato"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <label className="cursor-pointer inline-flex items-center gap-1 text-[10px] text-steel-400 hover:text-primary-600 bg-steel-50 hover:bg-primary-50 border border-steel-200 hover:border-primary-300 rounded-md px-2 py-0.5 transition">
+                                  {uploadingId === item.id ? (
+                                    <span className="animate-pulse">Subiendo...</span>
+                                  ) : (
+                                    <>
+                                      <Paperclip className="h-3 w-3" />
+                                      <span>Adjuntar</span>
+                                    </>
+                                  )}
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,.xlsx,.xls,.jpg,.jpeg,.png"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleUploadContrato(item.id, f);
+                                      e.target.value = '';
+                                    }}
+                                  />
+                                </label>
+                              )}
                             </td>
                             {groupId === 'administracion' && (
                               <td className="px-3 py-2.5 text-center">
@@ -2035,6 +2241,72 @@ export default function CashFlowPage() {
           <li>• <strong>Nomina externa:</strong> $860M nomina + $640M factoring cargados a Patio Sur, pendientes de reposicion.</li>
         </ul>
       </div>
+
+      {/* ── Modal: Previsualización de contrato ── */}
+      {previewContrato && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={() => setPreviewContrato(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl flex flex-col w-full max-w-4xl h-[90vh]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-steel-100 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary-500" />
+                <span className="text-sm font-semibold text-steel-800 truncate max-w-lg">{previewContrato.filename}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`/api/v1/documents/contrato/${previewContrato.itemId}`}
+                  download={previewContrato.filename}
+                  className="flex items-center gap-1.5 text-xs text-primary-600 hover:text-primary-800 bg-primary-50 border border-primary-200 rounded-lg px-3 py-1.5 transition"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Descargar
+                </a>
+                <button
+                  onClick={() => setPreviewContrato(null)}
+                  className="p-1.5 rounded-lg hover:bg-steel-100 text-steel-500 transition"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden rounded-b-xl bg-steel-50">
+              {(() => {
+                const ext = previewContrato.filename.split('.').pop()?.toLowerCase();
+                const previewUrl = `/api/v1/documents/contrato/${previewContrato.itemId}/preview`;
+                if (ext === 'pdf') {
+                  return <iframe src={previewUrl} className="w-full h-full rounded-b-xl" title={previewContrato.filename} />;
+                }
+                if (['jpg', 'jpeg', 'png'].includes(ext ?? '')) {
+                  return (
+                    <div className="w-full h-full flex items-center justify-center p-4">
+                      <img src={previewUrl} alt={previewContrato.filename} className="max-w-full max-h-full object-contain rounded-lg shadow" />
+                    </div>
+                  );
+                }
+                return (
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-steel-500">
+                    <FileText className="h-16 w-16 text-steel-300" />
+                    <p className="text-sm">Vista previa no disponible para este tipo de archivo.</p>
+                    <a
+                      href={`/api/v1/documents/contrato/${previewContrato.itemId}`}
+                      download={previewContrato.filename}
+                      className="flex items-center gap-2 text-sm text-primary-600 hover:text-primary-800 bg-primary-50 border border-primary-200 rounded-lg px-4 py-2 transition"
+                    >
+                      <Download className="h-4 w-4" />
+                      Descargar para ver
+                    </a>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal: Detalle de pagos por mes ── */}
       {selectedMonthDetail && (() => {

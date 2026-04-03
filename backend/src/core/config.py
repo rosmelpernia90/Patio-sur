@@ -12,8 +12,8 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
 
-    # Database - MySQL via aiomysql (async driver compatible con mysql+pymysql)
-    DATABASE_URL: str = "mysql+aiomysql://root:SessionsAdmin159**@192.168.10.153:3306/proyectog"
+    # Database - SQLite
+    DATABASE_URL: str = "sqlite+aiosqlite:///./patio_sur.db"
     DATABASE_ECHO: bool = False
 
     # JWT Auth

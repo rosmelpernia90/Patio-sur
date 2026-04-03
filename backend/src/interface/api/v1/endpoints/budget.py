@@ -18,7 +18,7 @@ from src.infrastructure.database.models.budget_model import BudgetItemModel
 router = APIRouter()
 
 
-@router.get("/", response_model=List[BudgetItemResponse])
+@router.get("", response_model=List[BudgetItemResponse])
 async def list_budget_items(
     project_id: str,
     category: Optional[str] = None,
@@ -76,7 +76,7 @@ async def get_budget_summary(
     )
 
 
-@router.post("/", response_model=BudgetItemResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=BudgetItemResponse, status_code=status.HTTP_201_CREATED)
 async def create_budget_item(
     project_id: str,
     data: BudgetItemCreate,
