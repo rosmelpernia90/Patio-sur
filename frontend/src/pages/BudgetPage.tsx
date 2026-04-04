@@ -698,8 +698,11 @@ export function BudgetPageContent() {
               </div>
               <div className="text-right">
                 <p className="text-lg font-black" style={{ color: g.color }}>{fmtM(gc)}</p>
-                <p className={clsx('text-[10px] font-semibold', gMargen < 0 ? 'text-red-600' : 'text-steel-500')}>
-                  Margen {gMargen.toFixed(1)}% · Venta {fmtM(gv)}
+                <p className="text-[10px] text-steel-400 mt-0.5">
+                  V: {fmtM(gv)}
+                  <span className={clsx('ml-2 font-semibold', gMargen < 0 ? 'text-red-500' : 'text-steel-400')}>
+                    {gMargen.toFixed(1)}%
+                  </span>
                 </p>
               </div>
             </div>
@@ -731,8 +734,11 @@ export function BudgetPageContent() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-xs font-bold text-steel-800">{fmtM(cc)}</p>
-                        <p className={clsx('text-[10px] font-semibold', cMargen < 0 ? 'text-red-600' : 'text-steel-500')}>
-                          Margen {cMargen.toFixed(1)}%
+                        <p className="text-[10px] text-steel-400 mt-0.5">
+                          V: {fmtM(cv)}
+                          <span className={clsx('ml-1.5 font-semibold', cMargen < 0 ? 'text-red-500' : 'text-steel-400')}>
+                            {cMargen.toFixed(1)}%
+                          </span>
                         </p>
                       </div>
                       {open
