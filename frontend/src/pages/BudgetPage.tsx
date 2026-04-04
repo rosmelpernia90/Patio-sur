@@ -696,19 +696,10 @@ export function BudgetPageContent() {
                 <p className="text-sm font-bold text-steel-900">{g.nombre}</p>
                 <p className="text-[11px] text-steel-500">{g.desc}</p>
               </div>
-              <div className="text-right flex-shrink-0">
-                <div className="flex items-end gap-5 justify-end">
-                  <div className="text-right">
-                    <p className="text-[9px] text-steel-400 uppercase font-semibold tracking-wide">Costo</p>
-                    <p className="text-lg font-black" style={{ color: g.color }}>{fmtM(gc)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[9px] text-emerald-500 uppercase font-semibold tracking-wide">Venta</p>
-                    <p className="text-lg font-black text-emerald-700">{fmtM(gv)}</p>
-                  </div>
-                </div>
-                <p className={clsx('text-[10px] font-semibold text-right mt-0.5', gMargen < 0 ? 'text-red-600' : 'text-steel-500')}>
-                  Margen {gMargen.toFixed(1)}%
+              <div className="text-right">
+                <p className="text-lg font-black" style={{ color: g.color }}>{fmtM(gc)}</p>
+                <p className={clsx('text-[10px] font-semibold', gMargen < 0 ? 'text-red-600' : 'text-steel-500')}>
+                  Margen {gMargen.toFixed(1)}% · Venta {fmtM(gv)}
                 </p>
               </div>
             </div>
@@ -739,17 +730,8 @@ export function BudgetPageContent() {
                         </p>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <div className="flex items-end gap-4 justify-end">
-                          <div className="text-right">
-                            <p className="text-[9px] text-steel-400 uppercase font-semibold tracking-wide">Costo</p>
-                            <p className="text-xs font-bold text-steel-800">{fmtM(cc)}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-[9px] text-emerald-500 uppercase font-semibold tracking-wide">Venta</p>
-                            <p className="text-xs font-bold text-emerald-700">{fmtM(cv)}</p>
-                          </div>
-                        </div>
-                        <p className={clsx('text-[10px] font-semibold text-right mt-0.5', cMargen < 0 ? 'text-red-600' : 'text-steel-500')}>
+                        <p className="text-xs font-bold text-steel-800">{fmtM(cc)}</p>
+                        <p className={clsx('text-[10px] font-semibold', cMargen < 0 ? 'text-red-600' : 'text-steel-500')}>
                           Margen {cMargen.toFixed(1)}%
                         </p>
                       </div>
