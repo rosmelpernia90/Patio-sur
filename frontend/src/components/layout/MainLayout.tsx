@@ -30,7 +30,6 @@ interface NavItem {
 const projectNavItems: NavItem[] = [
   { to: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, module: 'dashboard' },
   { to: 'business-case', label: 'Caso de Negocio', icon: Briefcase, module: 'business-case' },
-  { to: 'budget', label: 'Presupuesto', icon: DollarSign, module: 'budget' },
   { to: 'cronograma', label: 'Cronograma', icon: CalendarClock, module: 'dashboard' },
   { to: 'cash-flow', label: 'Flujo de Caja', icon: TrendingUp, module: 'cash-flow' },
   { to: 'reports', label: 'Reportes', icon: BarChart3, module: 'reports' },

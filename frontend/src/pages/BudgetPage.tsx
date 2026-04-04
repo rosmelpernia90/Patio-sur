@@ -383,29 +383,9 @@ const budgetHelp = {
   ],
 };
 
-export default function BudgetPage() {
-  useParams();
-
+export function BudgetPageContent() {
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-steel-900">Presupuesto del Proyecto</h2>
-          <p className="text-xs text-steel-400 mt-1">
-            Patio de Operacion Sur — PC Mejia Ingenieria S.A. para Consorcio Express S.A.S.
-          </p>
-          <p className="text-[11px] text-steel-400 mt-0.5">
-            Fuente: Excel "Detallado caso de negocio_220126.xlsx" | Financiacion real: Hoja "CREDITO" del Excel de Pagos
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <HelpButton {...budgetHelp} />
-          <button className="flex items-center gap-2 rounded-lg border border-steel-300 bg-white px-4 py-2 text-sm font-medium text-steel-600 hover:bg-steel-50 transition">
-            <Download className="h-4 w-4" /> Exportar
-          </button>
-        </div>
-      </div>
 
       {/* KPI Cards — Row 1 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -639,3 +619,5 @@ export default function BudgetPage() {
     </div>
   );
 }
+
+export default BudgetPageContent;

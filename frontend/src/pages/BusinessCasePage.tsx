@@ -1,6 +1,7 @@
-import { useParams } from 'react-router-dom';
-import { Download, TrendingDown, AlertTriangle, CheckCircle2, Clock, ShieldCheck } from 'lucide-react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { Download, TrendingDown, AlertTriangle, CheckCircle2, Clock, ShieldCheck, Briefcase, DollarSign } from 'lucide-react';
 import HelpButton from '@/components/common/HelpButton';
+import BudgetPageContent from './BudgetPage';
 
 const businessCaseHelp = {
   pageTitle: 'Ayuda — Caso de Negocio',
@@ -264,17 +265,28 @@ const procurementChart = gestionCompra
 
 export default function BusinessCasePage() {
   const { projectId: _projectId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'caso-negocio';
   const pctNegociado = (totalNegociado / totalCasoNegocio * 100);
   const pctPendiente = (totalPendiente / totalCasoNegocio * 100);
+
+  const tabs = [
+    { id: 'caso-negocio', label: 'Caso de Negocio', icon: Briefcase },
+    { id: 'presupuesto',  label: 'Presupuesto',     icon: DollarSign },
+  ];
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-steel-900">Caso de Negocio</h2>
+          <h2 className="text-xl font-bold text-steel-900">
+            {activeTab === 'presupuesto' ? 'Presupuesto' : 'Caso de Negocio'}
+          </h2>
           <p className="text-xs text-steel-400">
-            Analisis financiero detallado — Patio de Operacion Sur | Fuente: Detallado caso de negocio
+            {activeTab === 'presupuesto'
+              ? 'Detalle de venta vs costo por capítulo — Patio de Operacion Sur'
+              : 'Analisis financiero detallado — Patio de Operacion Sur | Fuente: Detallado caso de negocio'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -284,6 +296,30 @@ export default function BusinessCasePage() {
           </button>
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-steel-200">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setSearchParams({ tab: tab.id })}
+            className={`flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeTab === tab.id
+                ? 'border-primary-600 text-primary-700'
+                : 'border-transparent text-steel-500 hover:text-steel-700 hover:border-steel-300'
+            }`}
+          >
+            <tab.icon className="h-4 w-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Presupuesto */}
+      {activeTab === 'presupuesto' && <BudgetPageContent />}
+
+      {/* Tab: Caso de Negocio */}
+      {activeTab === 'caso-negocio' && <>
 
       {/* KPI Row 1 - Macro Financial */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -715,6 +751,8 @@ export default function BusinessCasePage() {
           </div>
         </div>
       </div>
+
+      </>}
     </div>
   );
 }
