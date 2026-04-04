@@ -469,34 +469,36 @@ function CostoVentaPanel() {
           <p className="text-[10px] text-primary-500 mt-0.5">100% base presupuestal</p>
         </div>
       </div>
-      <div className="space-y-2">
+      {/* Barra apilada: Costo + Utilidad = Venta Total */}
+      <div className="mt-2">
         <div className="flex items-center gap-3">
-          <span className="text-[10px] text-steel-500 w-20 text-right font-semibold">Costo</span>
-          <div className="flex-1 h-7 bg-steel-100 rounded-lg overflow-hidden flex">
-            <div className="h-full rounded-lg flex items-center justify-end pr-2"
+          <span className="text-[10px] text-steel-400 w-20 text-right">Venta total</span>
+          <div className="flex-1 h-11 rounded-xl overflow-hidden flex">
+            {/* Segmento Costo */}
+            <div className="h-full flex flex-col items-center justify-center overflow-hidden px-2"
               style={{ width: `${costoRatio.toFixed(1)}%`, backgroundColor: '#1b5eab' }}>
-              <span className="text-[9px] font-bold text-white">{fmtM(TOTAL_CON_AIU_COSTO)}</span>
+              <span className="text-[10px] font-black text-white leading-tight">{fmtM(TOTAL_CON_AIU_COSTO)}</span>
+              <span className="text-[9px] text-white/70 leading-tight">{costoRatio.toFixed(1)}%</span>
             </div>
-          </div>
-          <span className="text-[10px] font-bold text-steel-700 w-14 text-left">{costoRatio.toFixed(1)}%</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] text-steel-500 w-20 text-right font-semibold">Margen</span>
-          <div className="flex-1 h-7 bg-steel-100 rounded-lg overflow-hidden flex">
-            <div className="h-full rounded-lg flex items-center justify-end pr-2"
-              style={{ width: '100%', backgroundColor: '#059669' }}>
-              <span className="text-[9px] font-bold text-white">{fmtM(TOTAL_CON_AIU_VENTA)} (venta)</span>
+            {/* Segmento Utilidad / Margen */}
+            <div className="h-full flex-1 flex flex-col items-center justify-center overflow-hidden px-1"
+              style={{ backgroundColor: '#059669' }}>
+              <span className="text-[10px] font-black text-white leading-tight">{fmtM(margen)}</span>
+              <span className="text-[9px] text-white/70 leading-tight">+{margenPct.toFixed(1)}%</span>
             </div>
-          </div>
-          <span className="text-[10px] font-bold text-emerald-700 w-14 text-left">+{margenPct.toFixed(1)}%</span>
-        </div>
-        <div className="flex items-center gap-3 mt-1">
-          <span className="text-[10px] text-steel-400 w-20 text-right">Total venta</span>
-          <div className="flex-1 h-3 rounded-lg overflow-hidden flex">
-            <div className="h-full" style={{ width: `${costoRatio.toFixed(1)}%`, backgroundColor: '#1b5eab' }} />
-            <div className="h-full flex-1" style={{ backgroundColor: '#059669' }} />
           </div>
           <span className="text-[10px] font-black text-steel-800 w-14 text-left">{fmtM(TOTAL_CON_AIU_VENTA)}</span>
+        </div>
+        {/* Leyenda */}
+        <div className="flex items-center gap-4 mt-2 pl-[88px]">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: '#1b5eab' }} />
+            <span className="text-[10px] text-steel-500">Costo total</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ backgroundColor: '#059669' }} />
+            <span className="text-[10px] text-steel-500">Utilidad / Margen</span>
+          </div>
         </div>
       </div>
     </div>
