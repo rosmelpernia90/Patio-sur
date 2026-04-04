@@ -426,6 +426,24 @@ const TOTAL_COSTO  = GRUPOS.reduce((s, g) => s + grupoTotal(g, 'costo'), 0);
 const TOTAL_VENTA  = GRUPOS.reduce((s, g) => s + grupoTotal(g, 'venta'), 0);
 const TOTAL_OFERTA = 41012884481;
 
+// ── AIU (Administración 11% · Imprevistos 2% · Utilidad 4% · IVA Utilidad 19%) ──
+const AIU_ADM_PCT  = 0.11;
+const AIU_IMPR_PCT = 0.02;
+const AIU_UTIL_PCT = 0.04;
+const AIU_IVA_PCT  = 0.19; // sobre Utilidad únicamente
+
+const aiu_adm_c  = TOTAL_COSTO * AIU_ADM_PCT;
+const aiu_impr_c = TOTAL_COSTO * AIU_IMPR_PCT;
+const aiu_util_c = TOTAL_COSTO * AIU_UTIL_PCT;
+const aiu_iva_c  = aiu_util_c * AIU_IVA_PCT;
+const TOTAL_CON_AIU_COSTO = TOTAL_COSTO + aiu_adm_c + aiu_impr_c + aiu_util_c + aiu_iva_c;
+
+const aiu_adm_v  = TOTAL_VENTA * AIU_ADM_PCT;
+const aiu_impr_v = TOTAL_VENTA * AIU_IMPR_PCT;
+const aiu_util_v = TOTAL_VENTA * AIU_UTIL_PCT;
+const aiu_iva_v  = aiu_util_v * AIU_IVA_PCT;
+const TOTAL_CON_AIU_VENTA = TOTAL_VENTA + aiu_adm_v + aiu_impr_v + aiu_util_v + aiu_iva_v;
+
 // ── Costo vs Venta panel (extracted to avoid IIFE in JSX) ──
 function CostoVentaPanel() {
   const margen = TOTAL_VENTA - TOTAL_COSTO;
@@ -485,6 +503,61 @@ function CostoVentaPanel() {
   );
 }
 
+// ── AIU breakdown panel ──
+function AIUPanel() {
+  const rows: { label: string; pct?: string; costo: number; venta: number; bold?: boolean; highlight?: boolean }[] = [
+    { label: 'Subtotal Instalaciones Eléctricas — Costo Directo', costo: TOTAL_COSTO, venta: TOTAL_VENTA, bold: true },
+    { label: 'Administración', pct: '11,00%', costo: aiu_adm_c,  venta: aiu_adm_v  },
+    { label: 'Imprevistos',    pct: '2,00%',  costo: aiu_impr_c, venta: aiu_impr_v },
+    { label: 'Utilidad',       pct: '4,00%',  costo: aiu_util_c, venta: aiu_util_v },
+    { label: 'IVA de Utilidad',pct: '19,00%', costo: aiu_iva_c,  venta: aiu_iva_v  },
+    { label: 'TOTAL INSTALACIONES ELÉCTRICAS', costo: TOTAL_CON_AIU_COSTO, venta: TOTAL_CON_AIU_VENTA, bold: true, highlight: true },
+  ];
+
+  return (
+    <div className="rounded-xl border border-steel-200 bg-white shadow-card overflow-hidden">
+      <div className="px-5 py-3 border-b border-steel-100 flex items-center justify-between">
+        <p className="text-xs font-bold text-steel-700">AIU — Administración · Imprevistos · Utilidad</p>
+        <span className="text-[10px] text-steel-400 font-medium">aplicado sobre costo y venta directa</span>
+      </div>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="bg-steel-50 border-b border-steel-100">
+            <th className="text-left px-5 py-2 text-[10px] text-steel-500 font-semibold uppercase tracking-wide">Concepto</th>
+            <th className="text-right px-4 py-2 text-[10px] text-steel-500 font-semibold uppercase tracking-wide w-16">%</th>
+            <th className="text-right px-5 py-2 text-[10px] text-steel-500 font-semibold uppercase tracking-wide">Costo</th>
+            <th className="text-right px-5 py-2 text-[10px] text-emerald-600 font-semibold uppercase tracking-wide">Venta</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={i} className={
+              r.highlight
+                ? 'bg-primary-50 border-t-2 border-primary-200'
+                : r.bold
+                ? 'bg-steel-50 border-b border-steel-200'
+                : 'border-b border-steel-50 hover:bg-steel-50/60'
+            }>
+              <td className={`px-5 py-2.5 ${r.bold ? 'font-bold text-steel-900' : 'text-steel-600'}`}>
+                {r.label}
+              </td>
+              <td className="text-right px-4 py-2.5 text-steel-500 font-mono">
+                {r.pct ?? ''}
+              </td>
+              <td className={`text-right px-5 py-2.5 font-mono tabular-nums ${r.highlight ? 'font-black text-primary-800 text-sm' : r.bold ? 'font-bold text-steel-900' : 'text-steel-700'}`}>
+                {fmtCOP(r.costo)}
+              </td>
+              <td className={`text-right px-5 py-2.5 font-mono tabular-nums ${r.highlight ? 'font-black text-emerald-700 text-sm' : r.bold ? 'font-bold text-emerald-800' : 'text-emerald-700'}`}>
+                {fmtCOP(r.venta)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── Component ──
 export function BudgetPageContent() {
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
@@ -525,6 +598,9 @@ export function BudgetPageContent() {
 
       {/* ── Indicador Costo vs Venta ── */}
       <CostoVentaPanel />
+
+      {/* ── Desglose AIU ── */}
+      <AIUPanel />
 
       {/* ── Barras de composición Costo y Venta ── */}
       <div className="rounded-xl border border-steel-200 bg-white p-4 shadow-card space-y-4">
