@@ -148,19 +148,41 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 type LabelProps = { x?: number; y?: number; width?: number; height?: number; index?: number; segKey?: string };
 
 function SegLabel({ x = 0, y = 0, width = 0, height = 0, index = 0, segKey = '' }: LabelProps) {
-  if (height < 28) return null;
   const entry = chartData[index] as Record<string, number>;
   const value = entry[segKey] ?? 0;
   if (!value) return null;
   const total = index === 0 ? totalV : totalC;
   const pct   = ((value / total) * 100).toFixed(1);
+
+  // Segmento con suficiente altura: valor + porcentaje centrados
+  if (height >= 26) {
+    return (
+      <g>
+        <text x={x + width / 2} y={y + height / 2 - 7} textAnchor="middle" fill="white" fontSize={9} fontWeight="bold">
+          {formatCOP(value)}
+        </text>
+        <text x={x + width / 2} y={y + height / 2 + 7} textAnchor="middle" fill="rgba(255,255,255,0.85)" fontSize={9}>
+          {pct}%
+        </text>
+      </g>
+    );
+  }
+
+  // Segmento pequeño (altura 10-25): solo una línea centrada con valor y %
+  if (height >= 10) {
+    return (
+      <text x={x + width / 2} y={y + height / 2 + 4} textAnchor="middle" fill="white" fontSize={8} fontWeight="bold">
+        {formatCOP(value)} · {pct}%
+      </text>
+    );
+  }
+
+  // Muy pequeño: etiqueta flotante a la derecha del segmento
   return (
     <g>
-      <text x={x + width / 2} y={y + height / 2 - 7} textAnchor="middle" fill="white" fontSize={9} fontWeight="bold">
-        {formatCOP(value)}
-      </text>
-      <text x={x + width / 2} y={y + height / 2 + 7} textAnchor="middle" fill="rgba(255,255,255,0.85)" fontSize={9}>
-        {pct}%
+      <line x1={x + width + 4} y1={y + height / 2} x2={x + width + 14} y2={y + height / 2} stroke="#6e7179" strokeWidth={1} />
+      <text x={x + width + 16} y={y + height / 2 + 4} textAnchor="start" fill="#374151" fontSize={8} fontWeight="bold">
+        {formatCOP(value)} ({pct}%)
       </text>
     </g>
   );
