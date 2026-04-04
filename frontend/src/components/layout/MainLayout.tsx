@@ -69,20 +69,17 @@ export default function MainLayout() {
         {/* Logo Header */}
         <div className="flex h-16 items-center justify-between px-4 border-b border-primary-700/50">
           {sidebarOpen && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center">
               <img
-                src="/assets/logo-pcmejia.png"
-                alt="PC Mejia"
-                className="h-8 w-auto brightness-0 invert"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                }}
+                src="/images/pcmejia-logo.png"
+                alt="PC Mejia Ingenieria"
+                className="h-10 w-auto brightness-0 invert"
               />
-              <div className="hidden flex items-center gap-2">
-                <Building2 className="h-6 w-6 text-primary-300" />
-                <span className="text-sm font-bold text-white">PC Mejia</span>
-              </div>
+            </div>
+          )}
+          {!sidebarOpen && (
+            <div className="flex items-center justify-center w-full">
+              <Building2 className="h-6 w-6 text-primary-300" />
             </div>
           )}
           <button
