@@ -14,12 +14,11 @@ interface KPICardProps {
   centered?: boolean;
 }
 
-const variantStyles = {
-  default:  'bg-white border-steel-200 hover:border-primary-300',
-  primary:  'bg-white border-l-4 border-l-[#1b5eab] border-steel-200',
-  success:  'bg-white border-l-4 border-l-emerald-500 border-steel-200',
-  warning:  'bg-white border-l-4 border-l-amber-500 border-steel-200',
-  danger:   'bg-white border-l-4 border-l-red-500 border-steel-200',
+const variantBorderColor: Record<string, string | undefined> = {
+  primary: '#1b5eab',
+  success: '#10b981',
+  warning: '#f59e0b',
+  danger:  '#ef4444',
 };
 
 const iconStyles = {
@@ -38,6 +37,10 @@ const detailBadgeStyles = {
   danger:  'text-red-500 border-red-100 bg-red-50/60',
 };
 
+const trendColorMap: Record<string, Record<string, string>> = {
+  primary: { neutral: 'text-primary-600' },
+};
+
 export default function KPICard({
   title,
   value,
@@ -49,21 +52,23 @@ export default function KPICard({
   onClick,
   centered = false,
 }: KPICardProps) {
+  const leftBorder = variantBorderColor[variant];
+
   return (
     <div
       onClick={onClick}
+      style={leftBorder ? { borderLeftWidth: 4, borderLeftColor: leftBorder } : undefined}
       className={clsx(
-        'rounded-xl border shadow-card transition-all hover:shadow-card-hover flex flex-col',
-        variantStyles[variant],
+        'rounded-xl border border-steel-200 bg-white shadow-card transition-all hover:shadow-card-hover flex flex-col',
         onClick
           ? 'cursor-pointer hover:ring-2 hover:ring-primary-200 active:scale-[0.98] shadow-[0_4px_18px_-2px_rgba(27,94,171,0.10)]'
           : '',
+        !leftBorder && 'hover:border-primary-300',
       )}
     >
       {/* Main content */}
       <div className={clsx('p-5 flex-1', centered && 'flex flex-col items-center justify-center text-center')}>
         <div className={clsx('flex items-start', centered ? 'flex-col gap-2 items-center' : 'justify-between')}>
-          {/* Icon — top for centered, right for default */}
           {centered && (
             <div className={clsx('rounded-xl p-3', iconStyles[variant])}>
               <Icon className="h-5 w-5" />
@@ -79,15 +84,13 @@ export default function KPICard({
                   'mt-1 text-sm font-semibold',
                   trend === 'up' && 'text-emerald-600',
                   trend === 'down' && 'text-red-600',
-                  trend === 'neutral' && variant === 'primary' && 'text-primary-600',
-                  trend === 'neutral' && variant !== 'primary' && 'text-steel-500',
+                  trend === 'neutral' && (trendColorMap[variant]?.neutral || 'text-steel-500'),
                 )}
               >
                 {trend === 'up' && '+'}{trendValue}
               </p>
             )}
           </div>
-          {/* Icon — right for default layout */}
           {!centered && (
             <div className={clsx('rounded-xl p-3', iconStyles[variant])}>
               <Icon className="h-5 w-5" />
