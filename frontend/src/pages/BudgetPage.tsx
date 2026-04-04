@@ -183,7 +183,7 @@ export function BudgetPageContent() {
       {/* ── Barra de composición ── */}
       <div className="rounded-xl border border-steel-200 bg-white p-4 shadow-card">
         <p className="text-xs font-bold text-steel-700 mb-3">Composición del Costo Directo</p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <div className="flex-1 h-10 rounded-lg overflow-hidden flex">
             {GRUPOS.map(g => {
               const w = (g.costo / TOTAL_COSTO * 100);
@@ -208,9 +208,9 @@ export function BudgetPageContent() {
             })}
           </div>
           {/* Total a la derecha */}
-          <div className="flex-shrink-0 text-right border-l border-steel-200 pl-3">
-            <p className="text-[9px] text-steel-400 uppercase font-semibold tracking-wide">Total</p>
-            <p className="text-sm font-black text-steel-900 leading-tight">{fmtM(TOTAL_COSTO)}</p>
+          <div className="flex-shrink-0 text-right min-w-[90px] border-l-2 border-steel-200 pl-4 py-1">
+            <p className="text-[9px] text-steel-400 uppercase font-semibold tracking-widest">Total</p>
+            <p className="text-base font-black text-steel-900 leading-snug">{fmtM(TOTAL_COSTO)}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-3">
