@@ -239,7 +239,7 @@ export default function DashboardPage() {
           value={formatCOP(data.budget_summary.total_current_budget)}
           subtitle="BAC - Precio Global Fijo (inc. IVA, AIU)"
           icon={DollarSign}
-          variant="primary"
+          variant="default"
         />
         <KPICard
           title="Costo Real (ACWP)"

@@ -16,7 +16,7 @@ interface KPICardProps {
 
 const variantStyles = {
   default:  'bg-white border-steel-200 hover:border-primary-300',
-  primary:  'bg-white border-l-4 border-l-primary-600 border-steel-200',
+  primary:  'bg-white border-l-4 border-l-[#1b5eab] border-steel-200',
   success:  'bg-white border-l-4 border-l-emerald-500 border-steel-200',
   warning:  'bg-white border-l-4 border-l-amber-500 border-steel-200',
   danger:   'bg-white border-l-4 border-l-red-500 border-steel-200',
