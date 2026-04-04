@@ -581,31 +581,64 @@ export function BudgetPageContent() {
       return next;
     });
 
+  const navigateToChapter = (groupId: string, chapterId: string) => {
+    const key = `${groupId}-${chapterId}`;
+    setExpandedGroups(prev => { const next = new Set(prev); next.add(groupId); return next; });
+    setExpandedChapters(prev => { const next = new Set(prev); next.add(key); return next; });
+    setTimeout(() => {
+      document.getElementById(`chapter-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+  };
+
+  const negativos = GRUPOS.flatMap(g =>
+    g.chapters
+      .map(ch => {
+        const c = chapterTotal(ch, 'costo');
+        const v = chapterTotal(ch, 'venta');
+        return { id: ch.id, nombre: ch.nombre, perdida: c - v, pct: v > 0 ? ((c - v) / v * 100) : 0, c, v };
+      })
+      .filter(ch => ch.c > ch.v)
+  );
+  const totalPerdida = negativos.reduce((s, n) => s + n.perdida, 0);
+
   return (
     <div className="space-y-5">
 
       {/* ── KPIs ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 shadow-card">
-          <p className="text-[10px] text-primary-600 uppercase font-semibold tracking-wide">Valor Oferta Total (BAC)</p>
-          <p className="text-xl font-black text-primary-800 mt-1">{fmtM(TOTAL_OFERTA)}</p>
-          <p className="text-[10px] text-primary-500 mt-0.5">Precio global fijo del contrato</p>
-        </div>
         <div className="rounded-xl border border-steel-200 bg-white p-4 shadow-card">
-          <p className="text-[10px] text-steel-500 uppercase font-semibold tracking-wide">Costo Total del Proyecto</p>
+          <p className="text-[10px] text-steel-500 uppercase font-semibold tracking-wide">Costo Total</p>
           <p className="text-xl font-black text-steel-800 mt-1">{fmtM(TOTAL_CON_AIU_COSTO)}</p>
-          <p className="text-[10px] text-steel-400 mt-0.5">Costo directo + AIU · {fmtM(TOTAL_COSTO)} base</p>
+          <p className="text-[10px] text-steel-400 mt-0.5">Directo + AIU · {fmtM(TOTAL_COSTO)} base</p>
         </div>
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-card">
-          <p className="text-[10px] text-emerald-600 uppercase font-semibold tracking-wide">Venta Total del Proyecto</p>
+          <p className="text-[10px] text-emerald-600 uppercase font-semibold tracking-wide">Venta Total</p>
           <p className="text-xl font-black text-emerald-700 mt-1">{fmtM(TOTAL_CON_AIU_VENTA)}</p>
-          <p className="text-[10px] text-emerald-600 mt-0.5">Venta directa + AIU · {fmtM(TOTAL_VENTA)} base</p>
+          <p className="text-[10px] text-emerald-600 mt-0.5">Directa + AIU · {fmtM(TOTAL_VENTA)} base</p>
         </div>
         <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 shadow-card">
           <p className="text-[10px] text-violet-600 uppercase font-semibold tracking-wide">Margen Neto</p>
           <p className="text-xl font-black text-violet-700 mt-1">{fmtM(TOTAL_CON_AIU_VENTA - TOTAL_CON_AIU_COSTO)}</p>
           <p className="text-[10px] text-violet-500 mt-0.5">{((TOTAL_CON_AIU_VENTA - TOTAL_CON_AIU_COSTO) / TOTAL_CON_AIU_VENTA * 100).toFixed(1)}% sobre venta total</p>
         </div>
+        {negativos.length > 0 && (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 shadow-card cursor-pointer hover:brightness-95 transition"
+            onClick={() => navigateToChapter(
+              GRUPOS.find(g => g.chapters.some(ch => ch.id === negativos[0].id))?.id ?? '',
+              negativos[0].id
+            )}
+          >
+            <div className="flex items-center gap-1.5">
+              <AlertTriangle className="h-3 w-3 text-red-500 flex-shrink-0" />
+              <p className="text-[10px] text-red-600 uppercase font-semibold tracking-wide">En negativo</p>
+            </div>
+            <p className="text-xl font-black text-red-600 mt-1">−{fmtM(totalPerdida)}</p>
+            {negativos.length === 1
+              ? (<p className="text-[10px] text-red-500 mt-0.5 leading-snug line-clamp-2">Cap. {negativos[0].id} · {negativos[0].nombre} · −{negativos[0].pct.toFixed(1)}%</p>)
+              : (<p className="text-[10px] text-red-500 mt-0.5">{negativos.map(n => `Cap. ${n.id}`).join(', ')} · pérdida total</p>)
+            }
+          </div>
+        )}
       </div>
 
       {/* ── Indicador Costo vs Venta ── */}
@@ -613,83 +646,6 @@ export function BudgetPageContent() {
 
       {/* ── Desglose AIU ── */}
       <AIUPanel />
-
-      {/* ── Barras de composición Costo y Venta ── */}
-      <div className="rounded-xl border border-steel-200 bg-white p-4 shadow-card space-y-4">
-        {/* Costo */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-steel-700">Composición del Costo Directo</p>
-            <span className="text-xs font-black text-steel-900">{fmtM(TOTAL_COSTO)}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex-1 h-10 rounded-lg overflow-hidden flex">
-              {GRUPOS.map(g => {
-                const gc = grupoTotal(g, 'costo');
-                const w = gc / TOTAL_COSTO * 100;
-                return (
-                  <div key={g.id} className="flex flex-col items-center justify-center overflow-hidden"
-                    style={{ width: `${w.toFixed(1)}%`, backgroundColor: g.color }}
-                    title={`${g.nombre}: ${fmtM(gc)} (${w.toFixed(1)}%)`}>
-                    {w > 10 && <>
-                      <span className="text-[9px] font-bold text-white leading-tight">{fmtM(gc)}</span>
-                      <span className="text-[8px] text-white/80 leading-tight">{w.toFixed(1)}%</span>
-                    </>}
-                    {w > 4 && w <= 10 && <span className="text-[8px] font-bold text-white">{w.toFixed(1)}%</span>}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex-shrink-0 text-right min-w-[90px] border-l-2 border-steel-200 pl-4 py-1">
-              <p className="text-[9px] text-steel-400 uppercase font-semibold tracking-widest">Total</p>
-              <p className="text-base font-black text-steel-900 leading-snug">{fmtM(TOTAL_COSTO)}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Venta */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-steel-700">Composición de la Venta Directa</p>
-            <span className="text-xs font-black text-primary-800">{fmtM(TOTAL_VENTA)}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex-1 h-10 rounded-lg overflow-hidden flex">
-              {GRUPOS.map(g => {
-                const gv = grupoTotal(g, 'venta');
-                const w = gv / TOTAL_VENTA * 100;
-                return (
-                  <div key={g.id} className="flex flex-col items-center justify-center overflow-hidden"
-                    style={{ width: `${w.toFixed(1)}%`, backgroundColor: g.color + 'cc' }}
-                    title={`${g.nombre}: ${fmtM(gv)} (${w.toFixed(1)}%)`}>
-                    {w > 10 && <>
-                      <span className="text-[9px] font-bold text-white leading-tight">{fmtM(gv)}</span>
-                      <span className="text-[8px] text-white/80 leading-tight">{w.toFixed(1)}%</span>
-                    </>}
-                    {w > 4 && w <= 10 && <span className="text-[8px] font-bold text-white">{w.toFixed(1)}%</span>}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex-shrink-0 text-right min-w-[90px] border-l-2 border-primary-200 pl-4 py-1">
-              <p className="text-[9px] text-primary-400 uppercase font-semibold tracking-widest">Total</p>
-              <p className="text-base font-black text-primary-800 leading-snug">{fmtM(TOTAL_VENTA)}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Leyenda compartida */}
-        <div className="flex flex-wrap gap-x-5 gap-y-1.5 pt-2 border-t border-steel-100">
-          {GRUPOS.map(g => (
-            <div key={g.id} className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: g.color }} />
-              <span className="text-[10px] text-steel-600 font-medium">{g.nombre}</span>
-              <span className="text-[10px] text-steel-500">C: <strong className="text-steel-800">{fmtM(grupoTotal(g, 'costo'))}</strong></span>
-              <span className="text-[10px] text-primary-500">V: <strong className="text-primary-700">{fmtM(grupoTotal(g, 'venta'))}</strong></span>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* ── Grupos con capítulos ── */}
       {GRUPOS.map(g => {
@@ -736,7 +692,7 @@ export function BudgetPageContent() {
                 const key = `${g.id}-${ch.id}`;
                 const open = expandedChapters.has(key);
                 return (
-                  <div key={ch.id}>
+                  <div key={ch.id} id={`chapter-${key}`}>
                     {/* Chapter header — clickable */}
                     <button
                       onClick={() => toggleChapter(key)}
