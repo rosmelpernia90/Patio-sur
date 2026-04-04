@@ -562,7 +562,17 @@ function AIUPanel() {
 
 // ── Component ──
 export function BudgetPageContent() {
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(GRUPOS.map(g => g.id))  // todos abiertos por defecto
+  );
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (id: string) =>
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   const toggleChapter = (key: string) =>
     setExpandedChapters(prev => {
@@ -689,8 +699,12 @@ export function BudgetPageContent() {
         const Icon = g.icon;
         return (
           <div key={g.id} className={clsx('rounded-xl border shadow-card', g.colorBorder, g.colorBg)}>
-            {/* Grupo header */}
-            <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: g.color + '30' }}>
+            {/* Grupo header — clickeable para colapsar */}
+            <button
+              onClick={() => toggleGroup(g.id)}
+              className={clsx('w-full flex items-center gap-3 px-5 py-4 text-left transition hover:brightness-95', expandedGroups.has(g.id) && 'border-b')}
+              style={{ borderColor: g.color + '30' }}
+            >
               <div className="rounded-xl p-2.5" style={{ backgroundColor: g.color + '20' }}>
                 <Icon className="h-5 w-5" style={{ color: g.color }} />
               </div>
@@ -707,9 +721,13 @@ export function BudgetPageContent() {
                   </span>
                 </p>
               </div>
-            </div>
+              {expandedGroups.has(g.id)
+                ? <ChevronDown className="h-4 w-4 text-steel-400 flex-shrink-0 ml-1" />
+                : <ChevronRight className="h-4 w-4 text-steel-400 flex-shrink-0 ml-1" />}
+            </button>
 
-            {/* Capítulos */}
+            {/* Capítulos — colapsables */}
+            {expandedGroups.has(g.id) && (
             <div className="divide-y" style={{ borderColor: g.color + '20' }}>
               {g.chapters.map(ch => {
                 const cc = chapterTotal(ch, 'costo');
@@ -832,6 +850,7 @@ export function BudgetPageContent() {
                 );
               })}
             </div>
+            )}
           </div>
         );
       })}
