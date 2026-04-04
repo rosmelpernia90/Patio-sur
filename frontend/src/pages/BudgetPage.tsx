@@ -464,38 +464,139 @@ export function BudgetPageContent() {
         </div>
       </div>
 
-      {/* ── Barra de composición ── */}
-      <div className="rounded-xl border border-steel-200 bg-white p-4 shadow-card">
-        <p className="text-xs font-bold text-steel-700 mb-3">Composición del Costo Directo</p>
-        <div className="flex items-center gap-4">
-          <div className="flex-1 h-10 rounded-lg overflow-hidden flex">
-            {GRUPOS.map(g => {
-              const gc = grupoTotal(g, 'costo');
-              const w = gc / TOTAL_COSTO * 100;
-              return (
-                <div key={g.id} className="flex flex-col items-center justify-center overflow-hidden"
-                  style={{ width: `${w.toFixed(1)}%`, backgroundColor: g.color }}
-                  title={`${g.nombre}: ${fmtM(gc)} (${w.toFixed(1)}%)`}>
-                  {w > 10 && <>
-                    <span className="text-[9px] font-bold text-white leading-tight">{fmtM(gc)}</span>
-                    <span className="text-[8px] text-white/80 leading-tight">{w.toFixed(1)}%</span>
-                  </>}
-                  {w > 4 && w <= 10 && <span className="text-[8px] font-bold text-white">{w.toFixed(1)}%</span>}
+      {/* ── Indicador Costo vs Venta ── */}
+      {(() => {
+        const margen = TOTAL_VENTA - TOTAL_COSTO;
+        const margenPct = (margen / TOTAL_VENTA * 100);
+        const costoRatio = TOTAL_COSTO / TOTAL_VENTA * 100;
+        return (
+          <div className="rounded-xl border border-steel-200 bg-white p-5 shadow-card">
+            <p className="text-xs font-bold text-steel-700 mb-4">Análisis Costo vs Venta Directa — Presupuesto</p>
+            <div className="grid grid-cols-3 gap-4 mb-5">
+              <div className="text-center rounded-lg bg-steel-50 border border-steel-200 py-3 px-2">
+                <p className="text-[10px] text-steel-500 uppercase font-semibold tracking-wide mb-1">Costo Directo</p>
+                <p className="text-xl font-black text-steel-900">{fmtM(TOTAL_COSTO)}</p>
+                <p className="text-[10px] text-steel-400 mt-0.5">{costoRatio.toFixed(1)}% de la venta</p>
+              </div>
+              <div className="text-center rounded-lg bg-emerald-50 border border-emerald-200 py-3 px-2 relative">
+                <p className="text-[10px] text-emerald-600 uppercase font-semibold tracking-wide mb-1">Margen Bruto</p>
+                <p className="text-xl font-black text-emerald-700">{fmtM(margen)}</p>
+                <p className="text-[10px] text-emerald-600 mt-0.5">+{margenPct.toFixed(1)}% sobre venta</p>
+              </div>
+              <div className="text-center rounded-lg bg-blue-50 border border-blue-200 py-3 px-2">
+                <p className="text-[10px] text-blue-600 uppercase font-semibold tracking-wide mb-1">Venta Directa</p>
+                <p className="text-xl font-black text-blue-800">{fmtM(TOTAL_VENTA)}</p>
+                <p className="text-[10px] text-blue-500 mt-0.5">100% base presupuestal</p>
+              </div>
+            </div>
+            {/* Barra comparativa costo/margen */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-steel-500 w-20 text-right font-semibold">Costo</span>
+                <div className="flex-1 h-7 bg-steel-100 rounded-lg overflow-hidden flex">
+                  <div className="h-full rounded-lg flex items-center justify-end pr-2 transition-all"
+                    style={{ width: `${costoRatio.toFixed(1)}%`, backgroundColor: '#1b5eab' }}>
+                    <span className="text-[9px] font-bold text-white">{fmtM(TOTAL_COSTO)}</span>
+                  </div>
                 </div>
-              );
-            })}
+                <span className="text-[10px] font-bold text-steel-700 w-14 text-left">{costoRatio.toFixed(1)}%</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] text-steel-500 w-20 text-right font-semibold">Margen</span>
+                <div className="flex-1 h-7 bg-steel-100 rounded-lg overflow-hidden flex">
+                  <div className="h-full rounded-lg flex items-center justify-end pr-2"
+                    style={{ width: '100%', backgroundColor: '#059669' }}>
+                    <span className="text-[9px] font-bold text-white">{fmtM(TOTAL_VENTA)} (venta)</span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-700 w-14 text-left">+{margenPct.toFixed(1)}%</span>
+              </div>
+              {/* Barra apilada costo + margen = venta */}
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-[10px] text-steel-400 w-20 text-right">Total venta</span>
+                <div className="flex-1 h-3 rounded-lg overflow-hidden flex">
+                  <div className="h-full" style={{ width: `${costoRatio.toFixed(1)}%`, backgroundColor: '#1b5eab' }} />
+                  <div className="h-full flex-1" style={{ backgroundColor: '#059669' }} />
+                </div>
+                <span className="text-[10px] font-black text-steel-800 w-14 text-left">{fmtM(TOTAL_VENTA)}</span>
+              </div>
+            </div>
           </div>
-          <div className="flex-shrink-0 text-right min-w-[90px] border-l-2 border-steel-200 pl-4 py-1">
-            <p className="text-[9px] text-steel-400 uppercase font-semibold tracking-widest">Total</p>
-            <p className="text-base font-black text-steel-900 leading-snug">{fmtM(TOTAL_COSTO)}</p>
+        );
+      })()}
+
+      {/* ── Barras de composición Costo y Venta ── */}
+      <div className="rounded-xl border border-steel-200 bg-white p-4 shadow-card space-y-4">
+        {/* Costo */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-steel-700">Composición del Costo Directo</p>
+            <span className="text-xs font-black text-steel-900">{fmtM(TOTAL_COSTO)}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex-1 h-10 rounded-lg overflow-hidden flex">
+              {GRUPOS.map(g => {
+                const gc = grupoTotal(g, 'costo');
+                const w = gc / TOTAL_COSTO * 100;
+                return (
+                  <div key={g.id} className="flex flex-col items-center justify-center overflow-hidden"
+                    style={{ width: `${w.toFixed(1)}%`, backgroundColor: g.color }}
+                    title={`${g.nombre}: ${fmtM(gc)} (${w.toFixed(1)}%)`}>
+                    {w > 10 && <>
+                      <span className="text-[9px] font-bold text-white leading-tight">{fmtM(gc)}</span>
+                      <span className="text-[8px] text-white/80 leading-tight">{w.toFixed(1)}%</span>
+                    </>}
+                    {w > 4 && w <= 10 && <span className="text-[8px] font-bold text-white">{w.toFixed(1)}%</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex-shrink-0 text-right min-w-[90px] border-l-2 border-steel-200 pl-4 py-1">
+              <p className="text-[9px] text-steel-400 uppercase font-semibold tracking-widest">Total</p>
+              <p className="text-base font-black text-steel-900 leading-snug">{fmtM(TOTAL_COSTO)}</p>
+            </div>
           </div>
         </div>
-        <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-3">
+
+        {/* Venta */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-steel-700">Composición de la Venta Directa</p>
+            <span className="text-xs font-black text-blue-800">{fmtM(TOTAL_VENTA)}</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex-1 h-10 rounded-lg overflow-hidden flex">
+              {GRUPOS.map(g => {
+                const gv = grupoTotal(g, 'venta');
+                const w = gv / TOTAL_VENTA * 100;
+                return (
+                  <div key={g.id} className="flex flex-col items-center justify-center overflow-hidden"
+                    style={{ width: `${w.toFixed(1)}%`, backgroundColor: g.color + 'cc' }}
+                    title={`${g.nombre}: ${fmtM(gv)} (${w.toFixed(1)}%)`}>
+                    {w > 10 && <>
+                      <span className="text-[9px] font-bold text-white leading-tight">{fmtM(gv)}</span>
+                      <span className="text-[8px] text-white/80 leading-tight">{w.toFixed(1)}%</span>
+                    </>}
+                    {w > 4 && w <= 10 && <span className="text-[8px] font-bold text-white">{w.toFixed(1)}%</span>}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex-shrink-0 text-right min-w-[90px] border-l-2 border-blue-200 pl-4 py-1">
+              <p className="text-[9px] text-blue-400 uppercase font-semibold tracking-widest">Total</p>
+              <p className="text-base font-black text-blue-800 leading-snug">{fmtM(TOTAL_VENTA)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Leyenda compartida */}
+        <div className="flex flex-wrap gap-x-5 gap-y-1.5 pt-2 border-t border-steel-100">
           {GRUPOS.map(g => (
             <div key={g.id} className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: g.color }} />
               <span className="text-[10px] text-steel-600 font-medium">{g.nombre}</span>
-              <span className="text-[10px] font-bold text-steel-800">{fmtM(grupoTotal(g, 'costo'))}</span>
+              <span className="text-[10px] text-steel-500">C: <strong className="text-steel-800">{fmtM(grupoTotal(g, 'costo'))}</strong></span>
+              <span className="text-[10px] text-blue-500">V: <strong className="text-blue-700">{fmtM(grupoTotal(g, 'venta'))}</strong></span>
             </div>
           ))}
         </div>
