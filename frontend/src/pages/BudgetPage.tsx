@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronRight, Package, HardHat, Briefcase, Wrench } from 'lucide-react';
+import { AlertTriangle, Package, HardHat, Briefcase, Wrench } from 'lucide-react';
 import clsx from 'clsx';
 import { formatCOPFull } from '@/utils/formatNumbers';
 
 const fmt = formatCOPFull;
+// Formato en millones con separador de miles colombiano: 24.274.282.134 → "24.274 M"
 const fmtM = (v: number) => {
-  if (v >= 1e9) return `$${(v / 1e9).toFixed(1)} B`;
-  return `$${(v / 1e6).toFixed(1)} M`;
+  const millions = Math.round(v / 1_000_000);
+  return millions.toLocaleString('es-CO') + ' M';
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -121,9 +121,6 @@ const AIU_COSTO = 2930214540;
 const FIN_COSTO = 2211000000;
 
 export function BudgetPageContent() {
-  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
-
-  const toggleGroup = (id: string) => setExpandedGroup(prev => prev === id ? null : id);
 
   const margenTotal = ((TOTAL_OFERTA - TOTAL_COSTO_FINAL) / TOTAL_OFERTA * 100);
 
@@ -161,15 +158,9 @@ export function BudgetPageContent() {
           const pctDelTotal = (g.costo / TOTAL_COSTO * 100).toFixed(1);
           const Icon = g.icon;
           return (
-            <button
+            <div
               key={g.id}
-              onClick={() => toggleGroup(g.id)}
-              className={clsx(
-                'rounded-xl border p-4 text-left transition-all shadow-card hover:shadow-card-hover active:scale-[0.98]',
-                g.colorBg, g.colorBorder,
-                expandedGroup === g.id && 'ring-2 ring-offset-1',
-              )}
-              style={expandedGroup === g.id ? { outlineColor: g.color } : undefined}
+              className={clsx('rounded-xl border p-4 shadow-card', g.colorBg, g.colorBorder)}
             >
               <div className="flex items-center gap-2 mb-2">
                 <div className="rounded-lg p-1.5" style={{ backgroundColor: g.color + '20' }}>
@@ -181,38 +172,46 @@ export function BudgetPageContent() {
               </div>
               <p className="text-xs font-bold text-steel-800 leading-tight">{g.nombre}</p>
               <p className="text-lg font-black mt-1" style={{ color: g.color }}>{fmtM(g.costo)}</p>
-              <div className="flex items-center justify-between mt-2">
-                <span className={clsx('text-[10px] font-semibold', margenGrupo < 0 ? 'text-red-600' : 'text-steel-500')}>
-                  Margen {margenGrupo.toFixed(1)}%
-                </span>
-                {expandedGroup === g.id
-                  ? <ChevronDown className="h-3 w-3 text-steel-400" />
-                  : <ChevronRight className="h-3 w-3 text-steel-400" />}
-              </div>
-            </button>
+              <span className={clsx('text-[10px] font-semibold mt-2 block', margenGrupo < 0 ? 'text-red-600' : 'text-steel-500')}>
+                Margen {margenGrupo.toFixed(1)}%
+              </span>
+            </div>
           );
         })}
       </div>
 
       {/* ── Barra de composición ── */}
       <div className="rounded-xl border border-steel-200 bg-white p-4 shadow-card">
-        <p className="text-xs font-bold text-steel-700 mb-3">Composición del Costo Directo — {fmtM(TOTAL_COSTO)}</p>
-        <div className="w-full h-8 rounded-lg overflow-hidden flex">
-          {GRUPOS.map(g => {
-            const w = (g.costo / TOTAL_COSTO * 100).toFixed(1);
-            return (
-              <div
-                key={g.id}
-                className="flex items-center justify-center transition-all"
-                style={{ width: `${w}%`, backgroundColor: g.color }}
-                title={`${g.nombre}: ${fmtM(g.costo)} (${w}%)`}
-              >
-                {parseFloat(w) > 8 && (
-                  <span className="text-[9px] font-bold text-white">{w}%</span>
-                )}
-              </div>
-            );
-          })}
+        <p className="text-xs font-bold text-steel-700 mb-3">Composición del Costo Directo</p>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-10 rounded-lg overflow-hidden flex">
+            {GRUPOS.map(g => {
+              const w = (g.costo / TOTAL_COSTO * 100);
+              return (
+                <div
+                  key={g.id}
+                  className="flex flex-col items-center justify-center transition-all overflow-hidden"
+                  style={{ width: `${w.toFixed(1)}%`, backgroundColor: g.color }}
+                  title={`${g.nombre}: ${fmtM(g.costo)} (${w.toFixed(1)}%)`}
+                >
+                  {w > 10 && (
+                    <>
+                      <span className="text-[9px] font-bold text-white leading-tight">{fmtM(g.costo)}</span>
+                      <span className="text-[8px] text-white/80 leading-tight">{w.toFixed(1)}%</span>
+                    </>
+                  )}
+                  {w > 4 && w <= 10 && (
+                    <span className="text-[8px] font-bold text-white">{w.toFixed(1)}%</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {/* Total a la derecha */}
+          <div className="flex-shrink-0 text-right border-l border-steel-200 pl-3">
+            <p className="text-[9px] text-steel-400 uppercase font-semibold tracking-wide">Total</p>
+            <p className="text-sm font-black text-steel-900 leading-tight">{fmtM(TOTAL_COSTO)}</p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-3">
           {GRUPOS.map(g => (
@@ -225,9 +224,8 @@ export function BudgetPageContent() {
         </div>
       </div>
 
-      {/* ── Detalle por grupo (expandible) ── */}
+      {/* ── Detalle por grupo (siempre visible) ── */}
       {GRUPOS.map(g => {
-        if (expandedGroup !== g.id) return null;
         const Icon = g.icon;
         return (
           <div key={g.id} className={clsx('rounded-xl border p-5 shadow-card', g.colorBorder, g.colorBg)}>
