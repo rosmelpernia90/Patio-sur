@@ -444,28 +444,28 @@ const aiu_util_v = TOTAL_VENTA * AIU_UTIL_PCT;
 const aiu_iva_v  = aiu_util_v * AIU_IVA_PCT;
 const TOTAL_CON_AIU_VENTA = TOTAL_VENTA + aiu_adm_v + aiu_impr_v + aiu_util_v + aiu_iva_v;
 
-// ── Costo vs Venta panel (extracted to avoid IIFE in JSX) ──
+// ── Costo vs Venta panel ──
 function CostoVentaPanel() {
-  const margen = TOTAL_VENTA - TOTAL_COSTO;
-  const margenPct = (margen / TOTAL_VENTA * 100);
-  const costoRatio = TOTAL_COSTO / TOTAL_VENTA * 100;
+  const margen = TOTAL_CON_AIU_VENTA - TOTAL_CON_AIU_COSTO;
+  const margenPct = margen / TOTAL_CON_AIU_VENTA * 100;
+  const costoRatio = TOTAL_CON_AIU_COSTO / TOTAL_CON_AIU_VENTA * 100;
   return (
     <div className="rounded-xl border border-steel-200 bg-white p-5 shadow-card">
-      <p className="text-xs font-bold text-steel-700 mb-4">Análisis Costo vs Venta Directa — Presupuesto</p>
+      <p className="text-xs font-bold text-steel-700 mb-4">Análisis Financiero — Costo vs Venta Total (con AIU)</p>
       <div className="grid grid-cols-3 gap-4 mb-5">
         <div className="text-center rounded-lg bg-steel-50 border border-steel-200 py-3 px-2">
-          <p className="text-[10px] text-steel-500 uppercase font-semibold tracking-wide mb-1">Costo Directo</p>
-          <p className="text-xl font-black text-steel-900">{fmtM(TOTAL_COSTO)}</p>
+          <p className="text-[10px] text-steel-500 uppercase font-semibold tracking-wide mb-1">Costo Total</p>
+          <p className="text-xl font-black text-steel-900">{fmtM(TOTAL_CON_AIU_COSTO)}</p>
           <p className="text-[10px] text-steel-400 mt-0.5">{costoRatio.toFixed(1)}% de la venta</p>
         </div>
         <div className="text-center rounded-lg bg-emerald-50 border border-emerald-200 py-3 px-2">
-          <p className="text-[10px] text-emerald-600 uppercase font-semibold tracking-wide mb-1">Margen Bruto</p>
+          <p className="text-[10px] text-emerald-600 uppercase font-semibold tracking-wide mb-1">Margen Neto</p>
           <p className="text-xl font-black text-emerald-700">{fmtM(margen)}</p>
           <p className="text-[10px] text-emerald-600 mt-0.5">+{margenPct.toFixed(1)}% sobre venta</p>
         </div>
         <div className="text-center rounded-lg bg-primary-50 border border-primary-200 py-3 px-2">
-          <p className="text-[10px] text-primary-600 uppercase font-semibold tracking-wide mb-1">Venta Directa</p>
-          <p className="text-xl font-black text-primary-800">{fmtM(TOTAL_VENTA)}</p>
+          <p className="text-[10px] text-primary-600 uppercase font-semibold tracking-wide mb-1">Venta Total</p>
+          <p className="text-xl font-black text-primary-800">{fmtM(TOTAL_CON_AIU_VENTA)}</p>
           <p className="text-[10px] text-primary-500 mt-0.5">100% base presupuestal</p>
         </div>
       </div>
@@ -475,7 +475,7 @@ function CostoVentaPanel() {
           <div className="flex-1 h-7 bg-steel-100 rounded-lg overflow-hidden flex">
             <div className="h-full rounded-lg flex items-center justify-end pr-2"
               style={{ width: `${costoRatio.toFixed(1)}%`, backgroundColor: '#1b5eab' }}>
-              <span className="text-[9px] font-bold text-white">{fmtM(TOTAL_COSTO)}</span>
+              <span className="text-[9px] font-bold text-white">{fmtM(TOTAL_CON_AIU_COSTO)}</span>
             </div>
           </div>
           <span className="text-[10px] font-bold text-steel-700 w-14 text-left">{costoRatio.toFixed(1)}%</span>
@@ -485,7 +485,7 @@ function CostoVentaPanel() {
           <div className="flex-1 h-7 bg-steel-100 rounded-lg overflow-hidden flex">
             <div className="h-full rounded-lg flex items-center justify-end pr-2"
               style={{ width: '100%', backgroundColor: '#059669' }}>
-              <span className="text-[9px] font-bold text-white">{fmtM(TOTAL_VENTA)} (venta)</span>
+              <span className="text-[9px] font-bold text-white">{fmtM(TOTAL_CON_AIU_VENTA)} (venta)</span>
             </div>
           </div>
           <span className="text-[10px] font-bold text-emerald-700 w-14 text-left">+{margenPct.toFixed(1)}%</span>
@@ -496,7 +496,7 @@ function CostoVentaPanel() {
             <div className="h-full" style={{ width: `${costoRatio.toFixed(1)}%`, backgroundColor: '#1b5eab' }} />
             <div className="h-full flex-1" style={{ backgroundColor: '#059669' }} />
           </div>
-          <span className="text-[10px] font-black text-steel-800 w-14 text-left">{fmtM(TOTAL_VENTA)}</span>
+          <span className="text-[10px] font-black text-steel-800 w-14 text-left">{fmtM(TOTAL_CON_AIU_VENTA)}</span>
         </div>
       </div>
     </div>
@@ -577,22 +577,22 @@ export function BudgetPageContent() {
         <div className="rounded-xl border border-primary-200 bg-primary-50 p-4 shadow-card">
           <p className="text-[10px] text-primary-600 uppercase font-semibold tracking-wide">Valor Oferta Total (BAC)</p>
           <p className="text-xl font-black text-primary-800 mt-1">{fmtM(TOTAL_OFERTA)}</p>
-          <p className="text-[10px] text-primary-500 mt-0.5">Precio global fijo inc. IVA, AIU, financiación</p>
+          <p className="text-[10px] text-primary-500 mt-0.5">Precio global fijo del contrato</p>
         </div>
         <div className="rounded-xl border border-steel-200 bg-white p-4 shadow-card">
-          <p className="text-[10px] text-steel-500 uppercase font-semibold tracking-wide">Costo Directo Total</p>
-          <p className="text-xl font-black text-steel-800 mt-1">{fmtM(TOTAL_COSTO)}</p>
-          <p className="text-[10px] text-steel-400 mt-0.5">15 capítulos · hoja PS USD4000costo</p>
+          <p className="text-[10px] text-steel-500 uppercase font-semibold tracking-wide">Costo Total del Proyecto</p>
+          <p className="text-xl font-black text-steel-800 mt-1">{fmtM(TOTAL_CON_AIU_COSTO)}</p>
+          <p className="text-[10px] text-steel-400 mt-0.5">Costo directo + AIU · {fmtM(TOTAL_COSTO)} base</p>
         </div>
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-card">
-          <p className="text-[10px] text-emerald-600 uppercase font-semibold tracking-wide">Venta Directa Total</p>
-          <p className="text-xl font-black text-emerald-700 mt-1">{fmtM(TOTAL_VENTA)}</p>
-          <p className="text-[10px] text-emerald-600 mt-0.5">Margen bruto {((TOTAL_VENTA - TOTAL_COSTO) / TOTAL_VENTA * 100).toFixed(1)}%</p>
+          <p className="text-[10px] text-emerald-600 uppercase font-semibold tracking-wide">Venta Total del Proyecto</p>
+          <p className="text-xl font-black text-emerald-700 mt-1">{fmtM(TOTAL_CON_AIU_VENTA)}</p>
+          <p className="text-[10px] text-emerald-600 mt-0.5">Venta directa + AIU · {fmtM(TOTAL_VENTA)} base</p>
         </div>
-        <div className="rounded-xl border border-red-100 bg-red-50 p-4 shadow-card">
-          <p className="text-[10px] text-red-600 uppercase font-semibold tracking-wide">Capítulos en Riesgo</p>
-          <p className="text-xl font-black text-red-700 mt-1">1</p>
-          <p className="text-[10px] text-red-500 mt-0.5">Cap. 13 — Comp. Reactiva margen negativo</p>
+        <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 shadow-card">
+          <p className="text-[10px] text-violet-600 uppercase font-semibold tracking-wide">Margen Neto</p>
+          <p className="text-xl font-black text-violet-700 mt-1">{fmtM(TOTAL_CON_AIU_VENTA - TOTAL_CON_AIU_COSTO)}</p>
+          <p className="text-[10px] text-violet-500 mt-0.5">{((TOTAL_CON_AIU_VENTA - TOTAL_CON_AIU_COSTO) / TOTAL_CON_AIU_VENTA * 100).toFixed(1)}% sobre venta total</p>
         </div>
       </div>
 
