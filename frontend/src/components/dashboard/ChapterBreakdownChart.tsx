@@ -225,7 +225,7 @@ const ChapterBreakdownChart = () => {
             stroke="#ef4444"
             strokeDasharray="8 4"
             strokeWidth={2}
-            label={{ value: `Oferta Total: ${formatCOP(totalV)}`, position: 'insideTopLeft', fill: '#ef4444', fontSize: 10, fontWeight: 'bold', dy: -8 }}
+            label={{ value: `Oferta Total: ${formatCOP(totalV)}`, position: 'insideTopLeft', fill: '#ef4444', fontSize: 10, fontWeight: 'bold', dy: -22 }}
           />
         </BarChart>
       </ResponsiveContainer>
