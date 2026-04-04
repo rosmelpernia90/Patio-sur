@@ -1,10 +1,8 @@
 /** @type {import('tailwindcss').Config} */
-const baseDir = '/Users/rosmel/PC Mejiaa/Proyecto Patio Sur/frontend';
-
 export default {
   content: [
-    `${baseDir}/index.html`,
-    `${baseDir}/src/**/*.{js,ts,jsx,tsx}`,
+    './index.html',
+    './src/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
     extend: {
