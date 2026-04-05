@@ -940,6 +940,17 @@ export default function CashFlowPage() {
           isReal: e.actual_expense > 0,
         }));
 
+        // Meses con ingreso de capital/financiación
+        const incomeMonths = new Set<string>();
+        incomeMonths.add(mainIncomeMonth); // Ingreso principal
+        incomes.forEach(inc => {
+          if (inc.scenarioDate && inc.monto > 0) {
+            const [, month, year] = inc.scenarioDate.split('/').map(Number);
+            const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            incomeMonths.add(`${monthNames[month - 1]} ${year}`);
+          }
+        });
+
         // Running balance starting from total incomes
         let balance = totalIngresos;
         const months = MONTHS.map((m) => {
@@ -948,7 +959,8 @@ export default function CashFlowPage() {
           const balanceBefore = balance + m.expense - netIncome;
           const needsInjection = balance < 0;
           const isTight = balance >= 0 && balance < m.expense * 0.5;
-          return { ...m, balanceBefore, balanceAfter: balance, needsInjection, isTight };
+          const hasIncome = incomeMonths.has(m.label);
+          return { ...m, balanceBefore, balanceAfter: balance, needsInjection, isTight, hasIncome };
         });
 
         const maxExpense = Math.max(...months.map((m) => m.expense));
@@ -962,6 +974,7 @@ export default function CashFlowPage() {
                 <p className="text-[10px] text-primary-300 mt-0.5">Balance disponible vs pagos programados · Rojo = inyección de capital requerida</p>
               </div>
               <div className="flex items-center gap-4 text-[10px]">
+                <span className="flex items-center gap-1.5 text-primary-200"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-300 ring-1 ring-emerald-400 flex-shrink-0" />Ingreso</span>
                 <span className="flex items-center gap-1.5 text-primary-200"><span className="w-2.5 h-2.5 rounded-full bg-emerald-400 flex-shrink-0" />Cubierto</span>
                 <span className="flex items-center gap-1.5 text-primary-200"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400 flex-shrink-0" />Ajustado</span>
                 <span className="flex items-center gap-1.5 text-primary-200"><span className="w-2.5 h-2.5 rounded-full bg-red-400 flex-shrink-0" />Requiere inyeccion</span>
@@ -979,8 +992,9 @@ export default function CashFlowPage() {
                       key={m.label}
                       onClick={() => MONTHLY_PAYMENT_DETAILS[m.label] && setSelectedMonthDetail(m.label)}
                       className={clsx(
-                        'flex flex-col w-[130px] flex-shrink-0 border-r border-steel-100 last:border-r-0',
-                        m.needsInjection ? 'bg-red-50' : m.isTight ? 'bg-yellow-50/70' : 'bg-white',
+                        'flex flex-col w-[130px] flex-shrink-0 border-r last:border-r-0',
+                        m.hasIncome ? 'bg-emerald-50/80 border-r-emerald-200' : m.needsInjection ? 'bg-red-50 border-r-steel-100' : m.isTight ? 'bg-yellow-50/70 border-r-steel-100' : 'bg-white border-r-steel-100',
+                        m.hasIncome && 'ring-2 ring-inset ring-emerald-300',
                         isFirst && 'border-l-0',
                         MONTHLY_PAYMENT_DETAILS[m.label] && 'cursor-pointer hover:ring-2 hover:ring-primary-400 hover:ring-inset transition-all',
                       )}
@@ -988,12 +1002,15 @@ export default function CashFlowPage() {
                       {/* Month label */}
                       <div className={clsx(
                         'px-3 py-2 border-b text-center',
-                        m.needsInjection ? 'border-red-200 bg-red-100/60' : m.isTight ? 'border-yellow-200 bg-yellow-100/60' : 'border-steel-100 bg-steel-50',
+                        m.hasIncome ? 'border-emerald-200 bg-emerald-100/80' : m.needsInjection ? 'border-red-200 bg-red-100/60' : m.isTight ? 'border-yellow-200 bg-yellow-100/60' : 'border-steel-100 bg-steel-50',
                       )}>
-                        <p className={clsx('text-[11px] font-bold', m.needsInjection ? 'text-red-700' : m.isTight ? 'text-yellow-700' : 'text-steel-700')}>
+                        <p className={clsx('text-[11px] font-bold', m.hasIncome ? 'text-emerald-800' : m.needsInjection ? 'text-red-700' : m.isTight ? 'text-yellow-700' : 'text-steel-700')}>
                           {m.label}
                         </p>
                         <div className="flex items-center justify-center gap-1 mt-0.5">
+                          {m.hasIncome && (
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-200 rounded-full px-1.5 py-0.5">Ingreso</span>
+                          )}
                           {m.isReal && (
                             <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-100 rounded-full px-1.5 py-0.5">Real</span>
                           )}
