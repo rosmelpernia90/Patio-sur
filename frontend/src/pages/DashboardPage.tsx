@@ -145,16 +145,8 @@ const weeklyProgMap = new Map<number, number>([
 // Costo Real (AC) — desde Flujo de Caja (actual_expense por mes)
 // Fuente: "pagos Proyeccion de Pagos Patio Sur.xlsx"
 // ============================================================
-const cashFlowActualExpenses = [
-  { month: 'Oct 2025', actual_expense: 235139266 },
-  { month: 'Nov 2025', actual_expense: 954984 },
-  { month: 'Dic 2025', actual_expense: 198015049 },
-  { month: 'Ene 2026', actual_expense: 316045103 },
-  { month: 'Feb 2026', actual_expense: 7526804818 },
-  { month: 'Mar 2026', actual_expense: 1003716497 },
-  // Abr-Sep 2026: sin gastos reales aún
-];
-const ACTUAL_COST_TOTAL = cashFlowActualExpenses.reduce((s, e) => s + e.actual_expense, 0); // $9,280,675,717
+// Costo Real acumulado del proyecto (AC / ACWP)
+const ACTUAL_COST_TOTAL = 8741569503;
 
 // Costo Proyectado (EAC) — desde Caso de Negocio
 // Fuente: "Detallado caso de negocio_220126.xlsx"
