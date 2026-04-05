@@ -39,6 +39,7 @@ interface IncomeEntry {
   editable: boolean;
   isScenario?: boolean;
   scenarioDate?: string; // Formato: "DD/MM/YYYY"
+  incomeMonth?: string;  // Mes donde se aplica el ingreso, ej: "Feb 2026"
 }
 
 interface MonthlyPaymentDetail {
@@ -366,7 +367,7 @@ export default function CashFlowPage() {
   };
 
   const DEFAULT_INCOMES: IncomeEntry[] = [
-    { id: 'ING-FEB', label: 'Ingreso recibido Feb 2026', monto: 16745324700, editable: true },
+    { id: 'ING-FEB', label: 'Ingreso recibido', monto: 16745324700, editable: true, incomeMonth: 'Feb 2026' },
     { id: 'ING-ESC1', label: 'Escenario ingreso adicional 1', monto: 0, editable: true, isScenario: true },
     { id: 'ING-ESC2', label: 'Escenario ingreso adicional 2', monto: 0, editable: true, isScenario: true },
   ];
@@ -713,30 +714,35 @@ export default function CashFlowPage() {
     }
   };
 
+  // Mes seleccionado para el ingreso principal (ING-FEB)
+  const mainIncomeMonth = useMemo(() => {
+    const feb = incomes.find(i => i.id === 'ING-FEB');
+    return feb?.incomeMonth || 'Feb 2026';
+  }, [incomes]);
+
   // Función para obtener ingresos por mes considerando escenarios con fecha
   const getMonthIncomes = useMemo(() => {
     const monthIncomes: Record<string, number> = {};
 
-    // Inicializar con projected_income del cashFlowEntries
+    // Inicializar todo en 0
     cashFlowEntries.forEach((e) => {
-      monthIncomes[e.period_label] = e.projected_income;
+      monthIncomes[e.period_label] = 0;
     });
+
+    // Colocar el ingreso principal en el mes seleccionado
+    const febIncome = incomes.find(i => i.id === 'ING-FEB');
+    if (febIncome) {
+      const targetMonth = febIncome.incomeMonth || 'Feb 2026';
+      if (!monthIncomes[targetMonth]) monthIncomes[targetMonth] = 0;
+      monthIncomes[targetMonth] += ingresoRealCalculado.ingresoReal;
+    }
 
     // Agregar ingresos de escenarios según su fecha
     incomes.forEach((inc) => {
       if (inc.scenarioDate) {
-        // Parsear fecha DD/MM/YYYY
-        const [day, month, year] = inc.scenarioDate.split('/').map(Number);
-
-        // Encontrar el period_label correspondiente
-        const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-        const monthName = monthNames[month - 1];
-        const monthLabel = monthName.slice(0, 3).toLowerCase().replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i').replace(/ó/g, 'o').replace(/ú/g, 'u');
-        const periodLabel = `${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)} ${year}`;
-
-        // Buscar el period_label en el formato correcto (ejemplo: "Feb 2026")
-        const monthAbbr = monthName.slice(0, 3); // "Feb", "Mar", etc.
-        const correctPeriodLabel = `${monthAbbr} ${year}`;
+        const [, month, year] = inc.scenarioDate.split('/').map(Number);
+        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const correctPeriodLabel = `${monthNames[month - 1]} ${year}`;
 
         if (!monthIncomes[correctPeriodLabel]) {
           monthIncomes[correctPeriodLabel] = 0;
@@ -746,7 +752,7 @@ export default function CashFlowPage() {
     });
 
     return monthIncomes;
-  }, [incomes, cashFlowEntries]);
+  }, [incomes, cashFlowEntries, ingresoRealCalculado]);
 
   // KPIs
   const totalEgresoReal = cashFlowEntries.reduce((s, e) => s + e.actual_expense, 0);
@@ -916,10 +922,10 @@ export default function CashFlowPage() {
           isReal: e.actual_expense > 0,
         }));
 
-        // Running balance starting from Feb income
+        // Running balance starting from total incomes
         let balance = totalIngresos;
         const months = MONTHS.map((m) => {
-          const netIncome = m.label === 'Feb 2026' ? 0 : (m.income > 0 ? m.income : 0);
+          const netIncome = m.label === mainIncomeMonth ? 0 : (m.income > 0 ? m.income : 0);
           balance = balance + netIncome - m.expense;
           const balanceBefore = balance + m.expense - netIncome;
           const needsInjection = balance < 0;
@@ -1154,11 +1160,31 @@ export default function CashFlowPage() {
                     </div>
                   ) : (
                     <>
-                      <p className={clsx('text-xs font-semibold', inc.isScenario ? 'text-steel-600' : 'text-emerald-800')}>
-                        {inc.label}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={clsx('text-xs font-semibold', inc.isScenario ? 'text-steel-600' : 'text-emerald-800')}>
+                          {inc.label}
+                        </p>
+                        {isFebreroIngreso && (
+                          <select
+                            value={inc.incomeMonth || 'Feb 2026'}
+                            onChange={(e) => {
+                              const newMonth = e.target.value;
+                              setIncomes(prev => prev.map(i =>
+                                i.id === 'ING-FEB'
+                                  ? { ...i, incomeMonth: newMonth, label: `Ingreso recibido ${newMonth.split(' ')[0]} ${newMonth.split(' ')[1]}` }
+                                  : i
+                              ));
+                            }}
+                            className="text-[10px] font-semibold text-primary-700 bg-primary-50 border border-primary-300 rounded-lg px-2 py-1 cursor-pointer hover:bg-primary-100 focus:ring-1 focus:ring-primary-400 focus:outline-none transition"
+                          >
+                            {cashFlowEntries.map(e => (
+                              <option key={e.period_label} value={e.period_label}>{e.period_label}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
                       {isFebreroIngreso && (
-                        <p className="text-[10px] text-emerald-600 mt-0.5">Calculado: Desembolso - GMF - Comisión</p>
+                        <p className="text-[10px] text-emerald-600 mt-0.5">Calculado: Desembolso - GMF - Comision</p>
                       )}
                     </>
                   )}
