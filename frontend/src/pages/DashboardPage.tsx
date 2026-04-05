@@ -141,6 +141,26 @@ const weeklyProgMap = new Map<number, number>([
   [64,99.18],[65,100.00],[66,100.00],
 ]);
 
+// ============================================================
+// Costo Real (AC) — desde Flujo de Caja (actual_expense por mes)
+// Fuente: "pagos Proyeccion de Pagos Patio Sur.xlsx"
+// ============================================================
+const cashFlowActualExpenses = [
+  { month: 'Oct 2025', actual_expense: 235139266 },
+  { month: 'Nov 2025', actual_expense: 954984 },
+  { month: 'Dic 2025', actual_expense: 198015049 },
+  { month: 'Ene 2026', actual_expense: 316045103 },
+  { month: 'Feb 2026', actual_expense: 7526804818 },
+  { month: 'Mar 2026', actual_expense: 1003716497 },
+  // Abr-Sep 2026: sin gastos reales aún
+];
+const ACTUAL_COST_TOTAL = cashFlowActualExpenses.reduce((s, e) => s + e.actual_expense, 0); // $9,280,675,717
+
+// Costo Proyectado (EAC) — desde Caso de Negocio
+// Fuente: "Detallado caso de negocio_220126.xlsx"
+const COSTO_PRESUPUESTADO = 29457164387; // Presupuesto original de costos
+const EAC_BOTTOM_UP = 25157352188;       // Proyección bottom-up del equipo
+
 // Real project data from Oferta Mercantil and Presupuesto
 const dashboardData = {
   project: {
@@ -263,6 +283,26 @@ export default function DashboardPage() {
     };
   }, [customWeeks]);
 
+  // CPI dinámico: EV / AC
+  // EV = BAC × % avance real (de la última semana del Cronograma)
+  // AC = Costo Real acumulado (de Flujo de Caja)
+  const dynamicCPI = useMemo(() => {
+    const bac = 41012884481;
+    const ev = bac * dynamicSPI.real / 100;
+    const ac = ACTUAL_COST_TOTAL;
+    const cpi = ac > 0 ? ev / ac : 0;
+    const cpiCosto = EAC_BOTTOM_UP > 0 ? COSTO_PRESUPUESTADO / EAC_BOTTOM_UP : 0;
+    const pctBajoPresupuesto = Math.round((1 - EAC_BOTTOM_UP / COSTO_PRESUPUESTADO) * 100);
+
+    return {
+      cpi: Math.round(cpi * 100) / 100,
+      cpiCosto: Math.round(cpiCosto * 100) / 100,
+      ev,
+      ac,
+      pctBajoPresupuesto,
+    };
+  }, [dynamicSPI]);
+
   const { data: apiData, isLoading, error } = useQuery({
     queryKey: ['dashboard', projectId],
     queryFn: () => (projectId ? dashboardApi.get(projectId) : Promise.reject('No project ID')),
@@ -289,8 +329,8 @@ export default function DashboardPage() {
     } : {}),
   };
 
-  const costoPresupuestado = 29457164387;
-  const eacBottomUp = data.earned_value.eac;
+  const costoPresupuestado = COSTO_PRESUPUESTADO;
+  const eacBottomUp = EAC_BOTTOM_UP;
   const ahorroCompras = 3790285190;
   const ahorroTotal = costoPresupuestado - eacBottomUp;
   const margenOriginal = 28.2;
@@ -344,21 +384,21 @@ export default function DashboardPage() {
         />
         <KPICard
           title="Costo Real (ACWP)"
-          value={formatCOP(data.earned_value.actual_cost)}
-          subtitle={`${data.budget_summary.consumption_percentage}% ejecutado · Ver costo estimado`}
+          value={formatCOP(dynamicCPI.ac)}
+          subtitle={`${(dynamicCPI.ac / eacBottomUp * 100).toFixed(1)}% del EAC · Ver costo estimado`}
           icon={TrendingDown}
-          trend={data.budget_summary.consumption_percentage > 90 ? 'down' : 'neutral'}
-          trendValue={`${data.budget_summary.consumption_percentage}%`}
-          variant={data.budget_summary.consumption_percentage > 95 ? 'danger' : 'primary'}
+          trend={(dynamicCPI.ac / eacBottomUp * 100) > 90 ? 'down' : 'neutral'}
+          trendValue={`${(dynamicCPI.ac / eacBottomUp * 100).toFixed(1)}%`}
+          variant={(dynamicCPI.ac / eacBottomUp * 100) > 95 ? 'danger' : 'primary'}
           onClick={() => setShowCostoDetail(true)}
         />
         <KPICard
-          title="CPI Contractual (Referencia)"
-          value={data.earned_value.cpi_contractual.toFixed(2)}
-          subtitle="EV/AC sobre precio de venta — Margen contractual"
+          title="CPI (Indice de Costo)"
+          value={dynamicCPI.cpi.toFixed(2)}
+          subtitle={`EV/AC (${dynamicSPI.weekLabel}) · Ver detalle`}
           icon={Target}
-          trend="up"
-          variant="success"
+          trend={dynamicCPI.cpi >= 1 ? 'up' : 'down'}
+          variant={dynamicCPI.cpi >= 1 ? 'success' : 'danger'}
           onClick={() => setShowCPIDetail(true)}
         />
         <KPICard
@@ -747,33 +787,46 @@ export default function DashboardPage() {
 
               {/* Content */}
               <div className="p-6 space-y-5">
-                {/* Two CPI Cards */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4 text-center">
-                    <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">CPI Costo (Principal)</p>
-                    <p className="text-4xl font-black text-emerald-700 mt-1">{data.earned_value.cpi.toFixed(2)}</p>
-                    <p className="text-xs text-emerald-600 mt-1 font-medium">17% bajo presupuesto</p>
-                    <div className="mt-2 px-2 py-1 bg-emerald-100 rounded-lg">
-                      <p className="text-[10px] text-emerald-700">Costo Presupuestado / EAC</p>
-                      <p className="text-[10px] font-mono text-emerald-800 font-bold">{formatCOP(costoPresupuestado)} / {formatCOP(eacBottomUp)}</p>
+                {/* CPI Card */}
+                <div className={`rounded-xl border-2 p-5 text-center ${dynamicCPI.cpi >= 1 ? 'border-emerald-300 bg-emerald-50' : 'border-red-300 bg-red-50'}`}>
+                  <p className={`text-[10px] font-semibold uppercase tracking-wider ${dynamicCPI.cpi >= 1 ? 'text-emerald-600' : 'text-red-600'}`}>CPI — Valor Ganado / Costo Real ({dynamicSPI.weekLabel})</p>
+                  <p className={`text-5xl font-black mt-1 ${dynamicCPI.cpi >= 1 ? 'text-emerald-700' : 'text-red-700'}`}>{dynamicCPI.cpi.toFixed(2)}</p>
+                  <p className={`text-xs mt-2 font-bold rounded-lg px-2 py-1 inline-block ${dynamicCPI.cpi >= 1 ? 'text-emerald-600 bg-emerald-100' : 'text-red-600 bg-red-100'}`}>
+                    {dynamicCPI.cpi >= 1 ? `✓ Eficiente (${((dynamicCPI.cpi - 1) * 100).toFixed(0)}% por encima)` : `⚠ Sobrecosto (${((1 - dynamicCPI.cpi) * 100).toFixed(0)}%)`}
+                  </p>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="rounded-lg bg-white/60 p-2">
+                      <p className="text-[9px] text-steel-400 uppercase">EV (Valor Ganado)</p>
+                      <p className="text-xs font-bold font-mono text-steel-800">{formatCOP(dynamicCPI.ev)}</p>
+                      <p className="text-[9px] text-steel-400">BAC × {dynamicSPI.real.toFixed(1)}%</p>
                     </div>
-                  </div>
-                  <div className="rounded-xl border border-steel-200 bg-steel-50 p-4 text-center">
-                    <p className="text-[10px] font-semibold text-steel-500 uppercase tracking-wider">CPI Contractual (Referencia)</p>
-                    <p className="text-4xl font-black text-primary-700 mt-1">{data.earned_value.cpi_contractual.toFixed(2)}</p>
-                    <p className="text-xs text-steel-500 mt-1 font-medium">EV / AC (sobre precio venta)</p>
-                    <div className="mt-2 px-2 py-1 bg-steel-100 rounded-lg">
-                      <p className="text-[10px] text-steel-600">Valor Ganado / Costo Real</p>
-                      <p className="text-[10px] font-mono text-steel-700 font-bold">{formatCOP(data.earned_value.earned_value_amount)} / {formatCOP(data.earned_value.actual_cost)}</p>
+                    <div className="rounded-lg bg-white/60 p-2">
+                      <p className="text-[9px] text-steel-400 uppercase">AC (Costo Real)</p>
+                      <p className="text-xs font-bold font-mono text-steel-800">{formatCOP(dynamicCPI.ac)}</p>
+                      <p className="text-[9px] text-steel-400">Fuente: Flujo de Caja</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Why different */}
-                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
-                  <p className="text-xs font-bold text-amber-800">Por que son diferentes?</p>
-                  <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
-                    El CPI Contractual (2.51) compara el valor del trabajo a <strong>precio de venta</strong> ($41B) contra el costo real ($8.5B), lo que incluye el margen de utilidad del 28.2%. Para la gerencia, el <strong>CPI Costo = 1.17</strong> es mas relevante porque compara el costo presupuestado ($29.4B) contra el costo total proyectado ($25.1B), midiendo la eficiencia real sin inflar por margen.
+                {/* CPI Costo Proyectado */}
+                <div className="rounded-xl border border-steel-200 bg-steel-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-steel-700">CPI Costo (Presupuesto vs Proyeccion)</p>
+                    <span className={`text-xs font-bold rounded px-2 py-0.5 ${dynamicCPI.cpiCosto >= 1 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {dynamicCPI.cpiCosto.toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-steel-500 mt-1">
+                    Costo Presupuestado ({formatCOP(costoPresupuestado)}) / EAC ({formatCOP(eacBottomUp)}) = {dynamicCPI.pctBajoPresupuesto}% bajo presupuesto
+                  </p>
+                  <p className="text-[10px] text-steel-400 mt-0.5">Fuente: Caso de Negocio</p>
+                </div>
+
+                {/* Formula explanation */}
+                <div className="rounded-xl bg-primary-50 border border-primary-200 p-4">
+                  <p className="text-xs font-bold text-primary-800">Formula EVM</p>
+                  <p className="text-[11px] text-primary-700 mt-1 leading-relaxed">
+                    <strong>CPI = EV / AC</strong> — El Valor Ganado (EV = BAC × % avance real) se divide entre el Costo Real Acumulado (AC) del Flujo de Caja. Un CPI &gt; 1 indica que el proyecto genera mas valor del que cuesta. El CPI se actualiza automaticamente con el ultimo corte del Cronograma.
                   </p>
                 </div>
 
