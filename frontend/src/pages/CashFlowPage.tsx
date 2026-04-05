@@ -385,43 +385,61 @@ export default function CashFlowPage() {
   const [creditParams, setCreditParams] = useState(DEFAULT_CREDIT);
   const [prefsLoaded, setPrefsLoaded] = useState(false);
 
-  // Load preferences from server on mount
+  // ── Persistencia: servidor + localStorage como respaldo ──
+  const LS_ITEMS_KEY = 'patio_sur_cashflow_items';
+  const LS_INCOMES_KEY = 'patio_sur_cashflow_incomes';
+  const LS_CREDIT_KEY = 'patio_sur_cashflow_credit';
+
+  // Load preferences: intenta servidor primero, luego localStorage
   useEffect(() => {
     Promise.all([
       fetch('/api/v1/preferences/payment_items').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('/api/v1/preferences/incomes').then(r => r.ok ? r.json() : null).catch(() => null),
       fetch('/api/v1/preferences/credit_params').then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([savedItems, savedIncomes, savedCredit]) => {
-      if (savedItems && Array.isArray(savedItems) && savedItems.length > 0) {
+      // Items: servidor > localStorage > default
+      const itemsData = savedItems || (() => { try { return JSON.parse(localStorage.getItem(LS_ITEMS_KEY) || ''); } catch { return null; } })();
+      if (itemsData && Array.isArray(itemsData) && itemsData.length > 0) {
         setItems(INITIAL_ITEMS.map(base => {
-          const s = savedItems.find((p: { id: string }) => p.id === base.id);
+          const s = itemsData.find((p: { id: string }) => p.id === base.id);
           return s ? { ...base, grupo: s.grupo, incluido: s.incluido } : base;
         }));
       }
-      if (savedIncomes && Array.isArray(savedIncomes) && savedIncomes.length > 0) {
-        setIncomes(savedIncomes);
+
+      // Incomes: servidor > localStorage > default
+      const incomesData = savedIncomes || (() => { try { return JSON.parse(localStorage.getItem(LS_INCOMES_KEY) || ''); } catch { return null; } })();
+      if (incomesData && Array.isArray(incomesData) && incomesData.length > 0) {
+        setIncomes(incomesData);
       }
-      if (savedCredit && typeof savedCredit === 'object' && savedCredit.desembolso !== undefined) {
-        setCreditParams(savedCredit);
+
+      // Credit: servidor > localStorage > default
+      const creditData = savedCredit || (() => { try { return JSON.parse(localStorage.getItem(LS_CREDIT_KEY) || ''); } catch { return null; } })();
+      if (creditData && typeof creditData === 'object' && creditData.desembolso !== undefined) {
+        setCreditParams(creditData);
       }
+
       setPrefsLoaded(true);
     });
   }, []);
 
-  // Save to server whenever state changes (skip initial load)
+  // Save to server + localStorage whenever state changes (skip initial load)
   useEffect(() => {
     if (!prefsLoaded) return;
-    savePref('payment_items', items.map(i => ({ id: i.id, grupo: i.grupo, incluido: i.incluido })));
+    const data = items.map(i => ({ id: i.id, grupo: i.grupo, incluido: i.incluido }));
+    savePref('payment_items', data);
+    localStorage.setItem(LS_ITEMS_KEY, JSON.stringify(data));
   }, [items, prefsLoaded]);
 
   useEffect(() => {
     if (!prefsLoaded) return;
     savePref('incomes', incomes);
+    localStorage.setItem(LS_INCOMES_KEY, JSON.stringify(incomes));
   }, [incomes, prefsLoaded]);
 
   useEffect(() => {
     if (!prefsLoaded) return;
     savePref('credit_params', creditParams);
+    localStorage.setItem(LS_CREDIT_KEY, JSON.stringify(creditParams));
   }, [creditParams, prefsLoaded]);
 
   const [expandedGroups, setExpandedGroups] = useState<Record<GroupId, boolean>>({
