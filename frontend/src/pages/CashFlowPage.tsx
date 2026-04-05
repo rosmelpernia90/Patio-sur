@@ -367,7 +367,7 @@ export default function CashFlowPage() {
   };
 
   const DEFAULT_INCOMES: IncomeEntry[] = [
-    { id: 'ING-FEB', label: 'Ingreso recibido', monto: 16745324700, editable: true, incomeMonth: 'Feb 2026' },
+    { id: 'ING-FEB', label: 'Ingreso recibido Feb 2026', monto: 16745324700, editable: true, incomeMonth: 'Feb 2026' },
     { id: 'ING-ESC1', label: 'Escenario ingreso adicional 1', monto: 0, editable: true, isScenario: true },
     { id: 'ING-ESC2', label: 'Escenario ingreso adicional 2', monto: 0, editable: true, isScenario: true },
   ];
@@ -1137,56 +1137,57 @@ export default function CashFlowPage() {
                   inc.isScenario ? 'flex items-center gap-3' : 'flex items-center gap-3'
                 )}
               >
-                {/* Scenario type badge */}
-                {isScenario && (
+                {/* Type badge */}
+                {(isScenario || isFebreroIngreso) && (
                   <div className="flex-shrink-0">
                     <div className={clsx(
                       'rounded-lg px-2.5 py-1.5 text-xs font-bold flex items-center gap-1.5',
-                      scenarioType === 'inversion'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-purple-100 text-purple-700'
+                      isFebreroIngreso
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : scenarioType === 'inversion'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-purple-100 text-purple-700'
                     )}>
-                      <span className="text-sm">{scenarioTypeIcon}</span>
-                      <span>{scenarioTypeLabel}</span>
+                      <span className="text-sm">{isFebreroIngreso ? '🏦' : scenarioTypeIcon}</span>
+                      <span>{isFebreroIngreso ? 'Credito' : scenarioTypeLabel}</span>
                     </div>
                   </div>
                 )}
 
                 <div className="flex-1 min-w-0">
-                  {isScenario ? (
+                  {isFebreroIngreso ? (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={inc.incomeMonth || 'Feb 2026'}
+                          onChange={(e) => {
+                            const newMonth = e.target.value;
+                            setIncomes(prev => prev.map(i =>
+                              i.id === 'ING-FEB'
+                                ? { ...i, incomeMonth: newMonth }
+                                : i
+                            ));
+                          }}
+                          className="text-xs font-bold text-emerald-900 bg-transparent border-none p-0 cursor-pointer focus:outline-none focus:ring-0 appearance-none"
+                          style={{ WebkitAppearance: 'none' }}
+                        >
+                          {cashFlowEntries.map(e => (
+                            <option key={e.period_label} value={e.period_label}>{e.period_label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="h-3 w-3 text-emerald-400 -ml-1" />
+                      </div>
+                      <p className="text-[10px] text-emerald-600">Calculado: Desembolso - GMF - Comision</p>
+                    </div>
+                  ) : isScenario ? (
                     <div className="flex flex-col gap-1">
                       <p className="text-xs font-semibold text-blue-900">{scenarioMonthYear}</p>
                       <p className="text-[10px] text-blue-600">{inc.label}</p>
                     </div>
                   ) : (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <p className={clsx('text-xs font-semibold', inc.isScenario ? 'text-steel-600' : 'text-emerald-800')}>
-                          {inc.label}
-                        </p>
-                        {isFebreroIngreso && (
-                          <select
-                            value={inc.incomeMonth || 'Feb 2026'}
-                            onChange={(e) => {
-                              const newMonth = e.target.value;
-                              setIncomes(prev => prev.map(i =>
-                                i.id === 'ING-FEB'
-                                  ? { ...i, incomeMonth: newMonth, label: `Ingreso recibido ${newMonth.split(' ')[0]} ${newMonth.split(' ')[1]}` }
-                                  : i
-                              ));
-                            }}
-                            className="text-[10px] font-semibold text-primary-700 bg-primary-50 border border-primary-300 rounded-lg px-2 py-1 cursor-pointer hover:bg-primary-100 focus:ring-1 focus:ring-primary-400 focus:outline-none transition"
-                          >
-                            {cashFlowEntries.map(e => (
-                              <option key={e.period_label} value={e.period_label}>{e.period_label}</option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                      {isFebreroIngreso && (
-                        <p className="text-[10px] text-emerald-600 mt-0.5">Calculado: Desembolso - GMF - Comision</p>
-                      )}
-                    </>
+                    <p className={clsx('text-xs font-semibold', 'text-steel-600')}>
+                      {inc.label}
+                    </p>
                   )}
                 </div>
 
