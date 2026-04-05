@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   DollarSign,
@@ -87,6 +87,59 @@ import SCurveChart from '@/components/dashboard/SCurveChart';
 import ChapterBreakdownChart from '@/components/dashboard/ChapterBreakdownChart';
 import { generateProjectStatusPDF } from '@/utils/generatePDF';
 import { generateProjectStatusExcel } from '@/utils/generateExcel';
+import cronogramaBase from '@/data/cronogramaData';
+import type { Activity } from '@/data/cronogramaData';
+
+// ============================================================
+// Helpers para SPI dinámico — lee semanas del Cronograma
+// ============================================================
+const LS_KEY = 'patio_sur_custom_weeks_v1';
+
+interface CustomWeekData {
+  weekNum: number;
+  label: string;
+  dateLabel: string;
+  values: Record<string, number>;
+}
+
+function loadCustomWeeks(): CustomWeekData[] {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function applyOverrides(acts: Activity[], overrides: Record<string, number>): Activity[] {
+  return acts.map(a => {
+    if (a.children && a.children.length > 0) {
+      const newChildren = applyOverrides(a.children, overrides);
+      const totalPeso = newChildren.reduce((s, c) => s + c.peso, 0);
+      const wReal = newChildren.reduce((s, c) => s + c.avanceReal * c.peso, 0);
+      return { ...a, children: newChildren, avanceReal: totalPeso > 0 ? Math.round(wReal / totalPeso * 10) / 10 : 0 };
+    }
+    return { ...a, avanceReal: overrides[a.code] !== undefined ? overrides[a.code] : a.avanceReal };
+  });
+}
+
+function computeProjectReal(values: Record<string, number>): number {
+  const tree = applyOverrides(cronogramaBase, values);
+  const totalPeso = tree.reduce((s, a) => s + a.peso, 0);
+  const weighted = tree.reduce((s, a) => s + a.avanceReal * a.peso, 0);
+  return totalPeso > 0 ? Math.round(weighted / totalPeso * 100) / 100 : 0;
+}
+
+/** Tabla completa de avance programado semanal (S-00..S-66) */
+const weeklyProgMap = new Map<number, number>([
+  [0,0],[1,0.30],[2,1.53],[3,3.21],[4,3.56],[5,3.88],[6,3.96],[7,4.04],
+  [8,4.11],[9,4.18],[10,4.25],[11,4.32],[12,4.39],[13,4.52],[14,4.77],[15,5.09],
+  [16,6.02],[17,7.07],[18,8.02],[19,10.25],[20,11.29],[21,12.86],[22,14.06],[23,15.51],
+  [24,16.93],[25,20.22],[26,21.88],[27,23.71],[28,24.49],[29,25.24],[30,27.11],[31,29.25],
+  [32,30.83],[33,34.45],[34,36.33],[35,37.74],[36,39.34],[37,42.54],[38,45.36],[39,48.77],
+  [40,51.90],[41,57.38],[42,59.73],[43,62.78],[44,65.31],[45,68.07],[46,76.00],[47,84.65],
+  [48,89.86],[49,91.27],[50,92.21],[51,92.77],[52,93.86],[53,94.32],[54,96.39],[55,96.94],
+  [56,97.14],[57,97.35],[58,97.52],[59,97.67],[60,97.91],[61,98.28],[62,98.63],[63,98.90],
+  [64,99.18],[65,100.00],[66,100.00],
+]);
 
 // Real project data from Oferta Mercantil and Presupuesto
 const dashboardData = {
@@ -161,6 +214,54 @@ export default function DashboardPage() {
   const [showCPIDetail, setShowCPIDetail] = useState(false);
   const [showCostoDetail, setShowCostoDetail] = useState(false);
   const [showSPIDetail, setShowSPIDetail] = useState(false);
+  const [customWeeks, setCustomWeeks] = useState<CustomWeekData[]>(loadCustomWeeks);
+
+  // Re-leer localStorage al montar (por si el usuario viene de Cronograma)
+  useEffect(() => { setCustomWeeks(loadCustomWeeks()); }, []);
+  useEffect(() => {
+    const h = () => setCustomWeeks(loadCustomWeeks());
+    window.addEventListener('storage', h);
+    return () => window.removeEventListener('storage', h);
+  }, []);
+
+  // SPI dinámico: calcula desde la semana más reciente con datos
+  const dynamicSPI = useMemo(() => {
+    // Encontrar la semana más reciente con ejecutado
+    let latestWeekNum = 40; // S-40 base
+    let latestReal = 52.22; // Base S-40 ejecutado
+    let latestLabel = 'S-40';
+    let latestDate = '25 Mar';
+
+    // Revisar semanas personalizadas (ordenadas)
+    const sortedCustom = [...customWeeks].sort((a, b) => a.weekNum - b.weekNum);
+    if (sortedCustom.length > 0) {
+      const last = sortedCustom[sortedCustom.length - 1];
+      latestWeekNum = last.weekNum;
+      latestReal = computeProjectReal(last.values);
+      latestLabel = last.label;
+      latestDate = last.dateLabel;
+    }
+
+    const latestProg = weeklyProgMap.get(latestWeekNum) ?? 51.90;
+    const spiReal = latestProg > 0 ? latestReal / latestProg : 0;
+
+    // BAC para calcular EV y PV en montos
+    const bac = 41012884481;
+    const evAmount = bac * latestReal / 100;
+    const pvAmount = bac * latestProg / 100;
+
+    return {
+      weekLabel: latestLabel,
+      weekDate: latestDate,
+      weekNum: latestWeekNum,
+      prog: latestProg,
+      real: latestReal,
+      spi: Math.round(spiReal * 100) / 100,
+      evAmount,
+      pvAmount,
+      desviacion: Math.round((latestReal - latestProg) * 10) / 10,
+    };
+  }, [customWeeks]);
 
   const { data: apiData, isLoading, error } = useQuery({
     queryKey: ['dashboard', projectId],
@@ -262,11 +363,11 @@ export default function DashboardPage() {
         />
         <KPICard
           title="SPI (Indice Cronograma)"
-          value={`${data.earned_value.spi.toFixed(2)} / ${data.earned_value.spi_contractual.toFixed(2)}`}
-          subtitle={`Revisado: en tiempo | Contractual: -27% · Ver detalle`}
+          value={dynamicSPI.spi.toFixed(2)}
+          subtitle={`${dynamicSPI.weekLabel}: ${dynamicSPI.spi >= 1 ? 'en tiempo' : `${Math.abs(dynamicSPI.desviacion).toFixed(1)}% atrasado`} · Ver detalle`}
           icon={Clock}
-          trend={data.earned_value.spi_contractual >= 1 ? 'up' : 'down'}
-          variant={'warning'}
+          trend={dynamicSPI.spi >= 1 ? 'up' : 'down'}
+          variant={dynamicSPI.spi >= 1 ? 'warning' : 'danger'}
           onClick={() => setShowSPIDetail(true)}
         />
       </div>
@@ -559,116 +660,66 @@ export default function DashboardPage() {
               </div>
               {/* Content */}
               <div className="p-6 space-y-5">
-                {/* Two SPI Cards */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4 text-center">
-                    <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">SPI Real</p>
-                    <p className="text-[10px] text-emerald-500 mb-1">vs Linea Base Revisada (19 Mar)</p>
-                    <p className="text-4xl font-black text-emerald-700">{data.earned_value.spi.toFixed(2)}</p>
-                    <p className="text-xs text-emerald-600 mt-2 font-bold bg-emerald-100 rounded-lg px-2 py-1">✓ En Tiempo</p>
-                    <p className="text-[10px] text-emerald-600 mt-1">EV $21,416M / PV $21,285M</p>
-                  </div>
-                  <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4 text-center">
-                    <p className="text-[10px] font-semibold text-red-600 uppercase tracking-wider">SPI Contractual</p>
-                    <p className="text-[10px] text-red-400 mb-1">vs Linea Base Original (27 Nov)</p>
-                    <p className="text-4xl font-black text-red-700">{data.earned_value.spi_contractual.toFixed(2)}</p>
-                    <p className="text-xs text-red-600 mt-2 font-bold bg-red-100 rounded-lg px-2 py-1">⚠ 27% Atrasado</p>
-                    <p className="text-[10px] text-red-500 mt-1">EV $21,416M / PV~$29,338M</p>
-                  </div>
+                {/* SPI Real Card */}
+                <div className={`rounded-xl border-2 p-5 text-center ${dynamicSPI.spi >= 1 ? 'border-emerald-300 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}>
+                  <p className={`text-[10px] font-semibold uppercase tracking-wider ${dynamicSPI.spi >= 1 ? 'text-emerald-600' : 'text-amber-600'}`}>SPI Real ({dynamicSPI.weekLabel})</p>
+                  <p className={`text-[10px] mb-1 ${dynamicSPI.spi >= 1 ? 'text-emerald-500' : 'text-amber-500'}`}>vs Linea Base Revisada (19 Mar)</p>
+                  <p className={`text-5xl font-black ${dynamicSPI.spi >= 1 ? 'text-emerald-700' : 'text-amber-700'}`}>{dynamicSPI.spi.toFixed(2)}</p>
+                  <p className={`text-xs mt-2 font-bold rounded-lg px-2 py-1 inline-block ${dynamicSPI.spi >= 1 ? 'text-emerald-600 bg-emerald-100' : 'text-amber-600 bg-amber-100'}`}>
+                    {dynamicSPI.spi >= 1 ? '✓ En Tiempo' : `⚠ ${Math.abs(dynamicSPI.desviacion).toFixed(1)}% Atrasado`}
+                  </p>
+                  <p className={`text-[10px] mt-2 ${dynamicSPI.spi >= 1 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                    EV ${(dynamicSPI.evAmount / 1e6).toFixed(0)}M / PV ${(dynamicSPI.pvAmount / 1e6).toFixed(0)}M
+                  </p>
                 </div>
 
-                {/* Timeline comparison */}
+                {/* Detalle del cronograma */}
                 <div>
                   <p className="text-xs font-bold text-steel-700 mb-3 flex items-center gap-1.5">
-                    <CalendarClock className="h-3.5 w-3.5 text-steel-500" /> Comparativo de Cronogramas
+                    <CalendarClock className="h-3.5 w-3.5 text-steel-500" /> Detalle del Cronograma
                   </p>
-                  <div className="space-y-3">
-                    {/* Base Revisada */}
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-bold text-emerald-700">Linea Base Revisada (Re-Baseline)</p>
-                        <span className="text-[10px] bg-emerald-100 text-emerald-700 font-semibold rounded px-2 py-0.5">SPI = 1.01</span>
+                  <div className={`rounded-lg border p-3 ${dynamicSPI.spi >= 1 ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/60'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className={`text-xs font-bold ${dynamicSPI.spi >= 1 ? 'text-emerald-700' : 'text-amber-700'}`}>Linea Base Revisada (Re-Baseline)</p>
+                      <span className={`text-[10px] font-semibold rounded px-2 py-0.5 ${dynamicSPI.spi >= 1 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>SPI = {dynamicSPI.spi.toFixed(2)}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-[10px]">
+                      <div>
+                        <p className="text-steel-400">Inicio</p>
+                        <p className="font-semibold text-steel-700">20 Jun 2025</p>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-[10px]">
-                        <div>
-                          <p className="text-steel-400">Inicio</p>
-                          <p className="font-semibold text-steel-700">20 Jun 2025</p>
-                        </div>
-                        <div>
-                          <p className="text-steel-400">Duracion</p>
-                          <p className="font-semibold text-steel-700">453 dias</p>
-                        </div>
-                        <div>
-                          <p className="text-steel-400">Fin Revisado</p>
-                          <p className="font-semibold text-emerald-700">16 Sep 2026</p>
-                        </div>
+                      <div>
+                        <p className="text-steel-400">Duracion</p>
+                        <p className="font-semibold text-steel-700">453 dias</p>
                       </div>
-                      <div className="mt-2">
-                        <div className="flex justify-between text-[10px] text-steel-500 mb-1">
-                          <span>Avance planificado (S-40)</span>
-                          <span className="font-semibold">51.9%</span>
-                        </div>
-                        <div className="w-full bg-steel-100 rounded-full h-2 overflow-hidden">
-                          <div className="bg-emerald-500 h-full rounded-full" style={{ width: '51.9%' }} />
-                        </div>
-                        <div className="flex justify-between text-[10px] text-steel-500 mt-1 mb-1">
-                          <span>Avance real (S-40, 25 Mar 2026)</span>
-                          <span className="font-semibold text-emerald-700">52.2%</span>
-                        </div>
-                        <div className="w-full bg-steel-100 rounded-full h-2 overflow-hidden">
-                          <div className="bg-emerald-600 h-full rounded-full" style={{ width: '52.2%' }} />
-                        </div>
+                      <div>
+                        <p className="text-steel-400">Fin Revisado</p>
+                        <p className={`font-semibold ${dynamicSPI.spi >= 1 ? 'text-emerald-700' : 'text-amber-700'}`}>16 Sep 2026</p>
                       </div>
                     </div>
-
-                    {/* Base Original */}
-                    <div className="rounded-lg border border-red-200 bg-red-50/60 p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-bold text-red-700">Linea Base Original (Contractual)</p>
-                        <span className="text-[10px] bg-red-100 text-red-700 font-semibold rounded px-2 py-0.5">SPI = 0.73</span>
+                    <div className="mt-2">
+                      <div className="flex justify-between text-[10px] text-steel-500 mb-1">
+                        <span>Avance planificado ({dynamicSPI.weekLabel})</span>
+                        <span className="font-semibold">{dynamicSPI.prog.toFixed(1)}%</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-[10px]">
-                        <div>
-                          <p className="text-steel-400">Inicio</p>
-                          <p className="font-semibold text-steel-700">20 Jun 2025</p>
-                        </div>
-                        <div>
-                          <p className="text-steel-400">Duracion Original</p>
-                          <p className="font-semibold text-steel-700">405 dias</p>
-                        </div>
-                        <div>
-                          <p className="text-steel-400">Fin Original</p>
-                          <p className="font-semibold text-red-700">30 Jul 2026</p>
-                        </div>
+                      <div className="w-full bg-steel-100 rounded-full h-2 overflow-hidden">
+                        <div className="bg-primary-500 h-full rounded-full" style={{ width: `${dynamicSPI.prog}%` }} />
                       </div>
-                      <div className="mt-2">
-                        <div className="flex justify-between text-[10px] text-steel-500 mb-1">
-                          <span>Avance que deberia tener hoy</span>
-                          <span className="font-semibold">~71.5%</span>
-                        </div>
-                        <div className="w-full bg-steel-100 rounded-full h-2 overflow-hidden">
-                          <div className="bg-red-200 h-full rounded-full" style={{ width: '71.5%' }} />
-                        </div>
-                        <div className="flex justify-between text-[10px] text-steel-500 mt-1 mb-1">
-                          <span>Avance real vs base original</span>
-                          <span className="font-semibold text-red-700">52.2%</span>
-                        </div>
-                        <div className="w-full bg-steel-100 rounded-full h-2 overflow-hidden">
-                          <div className="bg-red-500 h-full rounded-full" style={{ width: '52.2%' }} />
-                        </div>
+                      <div className="flex justify-between text-[10px] text-steel-500 mt-1 mb-1">
+                        <span>Avance real ({dynamicSPI.weekLabel}, {dynamicSPI.weekDate})</span>
+                        <span className={`font-semibold ${dynamicSPI.spi >= 1 ? 'text-emerald-700' : 'text-amber-700'}`}>{dynamicSPI.real.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full bg-steel-100 rounded-full h-2 overflow-hidden">
+                        <div className={`h-full rounded-full ${dynamicSPI.spi >= 1 ? 'bg-emerald-600' : 'bg-amber-500'}`} style={{ width: `${dynamicSPI.real}%` }} />
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Re-baseline info */}
-                <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
-                  <p className="text-xs font-bold text-amber-800">Re-Baseline: +48 dias</p>
-                  <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
-                    El cronograma fue re-baselineado por <strong>problemas financieros de PC Mejia</strong> (retraso en inicio de actividades). La nueva linea base revisada (19 Mar 2026) extiende el plazo de 405 a 453 dias, moviendo el fin del <strong>30 Jul 2026</strong> al <strong>16 Sep 2026</strong>. La fecha contractual con Consorcio Express sigue siendo <strong>3 Jul 2026</strong>.
-                  </p>
-                  <p className="text-[10px] text-amber-600 mt-2 font-semibold">
-                    Los valores proyectados del cronograma provienen del Caso de Negocio y la Curva S (19 mar).
+                {/* Nota */}
+                <div className="rounded-xl bg-steel-50 border border-steel-200 p-4">
+                  <p className="text-[11px] text-steel-600 leading-relaxed">
+                    El SPI se calcula como <strong>Avance Real / Avance Programado</strong> de la Curva S (Linea Base Revisada 19 Mar). Los valores se actualizan automaticamente con los cortes semanales registrados en el Cronograma.
                   </p>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+import { useState, useEffect, useMemo } from 'react';
 import {
   Line,
   XAxis,
@@ -9,19 +10,60 @@ import {
   Area,
   ComposedChart,
 } from 'recharts';
+import cronogramaBase from '@/data/cronogramaData';
+import type { Activity } from '@/data/cronogramaData';
 
 // ============================================================
-// DATA — Curva S real del proyecto
+// Semanas personalizadas — misma clave que CronogramaPage
+// ============================================================
+const LS_KEY = 'patio_sur_custom_weeks_v1';
+
+interface CustomWeekData {
+  weekNum: number;
+  label: string;
+  dateLabel: string;
+  values: Record<string, number>;
+}
+
+function loadCustomWeeks(): CustomWeekData[] {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+/** Aplica overrides a hojas y recalcula padres (igual que CronogramaPage) */
+function applyOverrides(acts: Activity[], overrides: Record<string, number>): Activity[] {
+  return acts.map(a => {
+    if (a.children && a.children.length > 0) {
+      const newChildren = applyOverrides(a.children, overrides);
+      const totalPeso = newChildren.reduce((s, c) => s + c.peso, 0);
+      const wReal = newChildren.reduce((s, c) => s + c.avanceReal * c.peso, 0);
+      return { ...a, children: newChildren, avanceReal: totalPeso > 0 ? Math.round(wReal / totalPeso * 10) / 10 : 0 };
+    }
+    return { ...a, avanceReal: overrides[a.code] !== undefined ? overrides[a.code] : a.avanceReal };
+  });
+}
+
+/** Calcula el avance real del proyecto a partir de los overrides */
+function computeProjectReal(values: Record<string, number>): number {
+  const tree = applyOverrides(cronogramaBase, values);
+  const totalPeso = tree.reduce((s, a) => s + a.peso, 0);
+  const weighted = tree.reduce((s, a) => s + a.avanceReal * a.peso, 0);
+  return totalPeso > 0 ? Math.round(weighted / totalPeso * 100) / 100 : 0;
+}
+
+// ============================================================
+// DATA BASE — Curva S del proyecto
 // Fuente: "Curva S (19 mar) Pablo.xlsx" → Hoja "Curva S (19 mar)"
 // 67 semanas: S-00 (18 Jun 2025) a S-66 (23 Sep 2026)
-// Planeado: avance acumulado programado (% peso ponderado)
-// Ejecutado: avance real acumulado al corte de cada semana
 // ============================================================
 interface SCurvePoint {
   week: string;
   date: string;
   planeado: number;
   ejecutado: number | null;
+  isCustom?: boolean;
 }
 
 const rawData: SCurvePoint[] = [
@@ -94,26 +136,15 @@ const rawData: SCurvePoint[] = [
   { week: 'S-66', date: '2026-09-23', planeado: 100.00, ejecutado: null },
 ];
 
-// Format date for display (dd/mm)
+// Format date for display
 const fmtDate = (d: string) => {
   const [, m, day] = d.split('-');
-  const months: Record<string, string> = { '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr', '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Ago', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic' };
+  const months: Record<string, string> = {
+    '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr', '05': 'May', '06': 'Jun',
+    '07': 'Jul', '08': 'Ago', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic',
+  };
   return `${parseInt(day)} ${months[m]}`;
 };
-
-// Show every 5th tick for readability
-const chartData = rawData.map((d, i) => ({
-  ...d,
-  label: i % 5 === 0 ? fmtDate(d.date) : '',
-  displayLabel: `${d.week} (${fmtDate(d.date)})`,
-}));
-
-// Current week index (last with ejecutado data)
-const currentIdx = rawData.reduce((acc, d, i) => d.ejecutado !== null ? i : acc, 0);
-const currentPlaneado = rawData[currentIdx].planeado;
-const currentEjecutado = rawData[currentIdx].ejecutado as number;
-const desviacion = currentEjecutado - currentPlaneado;
-const spiCurva = currentEjecutado / currentPlaneado;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CustomTooltip = ({ active, payload }: any) => {
@@ -121,7 +152,10 @@ const CustomTooltip = ({ active, payload }: any) => {
   const d = payload[0].payload;
   return (
     <div className="bg-white rounded-xl border border-steel-200 shadow-lg px-4 py-3 text-xs">
-      <p className="font-bold text-steel-800 mb-1">{d.week} — {fmtDate(d.date)}</p>
+      <p className="font-bold text-steel-800 mb-1">
+        {d.week} — {fmtDate(d.date)}
+        {d.isCustom && <span className="ml-2 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">Nuevo corte</span>}
+      </p>
       <p className="text-primary-600">Planeado: <span className="font-bold">{d.planeado.toFixed(2)}%</span></p>
       {d.ejecutado !== null && (
         <>
@@ -136,6 +170,54 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export default function SCurveChart() {
+  const [customWeeks, setCustomWeeks] = useState<CustomWeekData[]>(loadCustomWeeks);
+
+  // Escuchar cambios en localStorage (navegación entre páginas actualiza al volver)
+  useEffect(() => {
+    const handleStorage = () => setCustomWeeks(loadCustomWeeks());
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  // Re-leer localStorage al montar (por si el usuario viene de Cronograma)
+  useEffect(() => {
+    setCustomWeeks(loadCustomWeeks());
+  }, []);
+
+  // Combinar datos base con semanas personalizadas del Cronograma
+  const mergedData = useMemo(() => {
+    // Mapa: weekNum → ejecutado calculado de semanas personalizadas
+    const customMap = new Map<number, number>();
+    for (const cw of customWeeks) {
+      customMap.set(cw.weekNum, computeProjectReal(cw.values));
+    }
+
+    return rawData.map((d) => {
+      const weekNum = parseInt(d.week.replace('S-', ''));
+      const customVal = customMap.get(weekNum);
+      const isCustom = customVal !== undefined;
+      // Mostrar etiqueta cada 2 semanas (semanas pares) para igualar densidad del Cronograma
+      const showLabel = weekNum % 2 === 0;
+      return {
+        ...d,
+        ejecutado: isCustom ? customVal : d.ejecutado,
+        isCustom,
+        label: showLabel ? fmtDate(d.date) : '',
+        displayLabel: `${d.week} (${fmtDate(d.date)})`,
+      };
+    });
+  }, [customWeeks]);
+
+  // Semana actual = última con dato ejecutado
+  const currentIdx = mergedData.reduce((acc, d, i) => d.ejecutado !== null ? i : acc, 0);
+  const currentData = mergedData[currentIdx];
+  const currentPlaneado = currentData.planeado;
+  const currentEjecutado = currentData.ejecutado as number;
+  const desviacion = currentEjecutado - currentPlaneado;
+  const spiCurva = currentPlaneado > 0 ? currentEjecutado / currentPlaneado : 0;
+
+  const hasCustomWeeks = customWeeks.length > 0;
+
   return (
     <div className="rounded-xl border border-steel-200 bg-white p-6 shadow-card">
       <div className="flex items-center justify-between mb-4">
@@ -144,7 +226,12 @@ export default function SCurveChart() {
             Curva S — Avance del Proyecto
           </h3>
           <p className="text-xs text-steel-400 mt-1">
-            Progreso acumulado ponderado semanal (Jun 2025 - Sep 2026) | 518 actividades | Fuente: Curva S (19 mar) Pablo.xlsx
+            Progreso acumulado ponderado semanal (Jun 2025 - Sep 2026) | 515 actividades | Fuente: Curva S (19 mar) Pablo.xlsx
+            {hasCustomWeeks && (
+              <span className="ml-2 text-emerald-600 font-medium">
+                + {customWeeks.length} corte{customWeeks.length > 1 ? 's' : ''} nuevo{customWeeks.length > 1 ? 's' : ''} ({customWeeks.map(cw => cw.label).join(', ')})
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-4 text-xs">
@@ -160,7 +247,7 @@ export default function SCurveChart() {
       </div>
 
       <ResponsiveContainer width="100%" height={420}>
-        <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
+        <ComposedChart data={mergedData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
           <defs>
             <linearGradient id="gradPlan" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#1b5eab" stopOpacity={0.08} />
@@ -174,11 +261,11 @@ export default function SCurveChart() {
           <CartesianGrid strokeDasharray="3 3" stroke="#ecedef" />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 9, fill: '#6e7179' }}
+            tick={{ fontSize: 8, fill: '#6e7179' }}
             tickLine={false}
             interval={0}
-            height={35}
-            angle={-35}
+            height={42}
+            angle={-30}
             textAnchor="end"
           />
           <YAxis
@@ -189,25 +276,31 @@ export default function SCurveChart() {
           />
           <Tooltip content={<CustomTooltip />} />
 
-          {/* Reference lines */}
+          {/* Línea de corte actual */}
           <ReferenceLine
-            x={chartData[currentIdx].label || ''}
-            stroke="#8b8e96"
+            x={mergedData[currentIdx].label || ''}
+            stroke={currentData.isCustom ? '#16a34a' : '#8b8e96'}
             strokeDasharray="4 4"
-            label={{ value: `Hoy (${fmtDate(rawData[currentIdx].date)})`, position: 'top', fontSize: 9, fill: '#6e7179' }}
+            label={{
+              value: `${currentData.week} (${fmtDate(currentData.date)})`,
+              position: 'top',
+              fontSize: 9,
+              fill: currentData.isCustom ? '#16a34a' : '#6e7179',
+            }}
           />
+          {/* Fecha contractual S-54 */}
           <ReferenceLine
-            x={chartData[54].label || ''}
+            x={mergedData[54].label || ''}
             stroke="#dc2626"
             strokeDasharray="4 4"
             label={{ value: 'Fecha Contractual (Jul 2026)', position: 'top', fontSize: 8, fill: '#dc2626' }}
           />
 
-          {/* Filled areas */}
+          {/* Áreas de relleno */}
           <Area type="monotone" dataKey="planeado" fill="url(#gradPlan)" stroke="none" />
           <Area type="monotone" dataKey="ejecutado" fill="url(#gradReal)" stroke="none" connectNulls={false} />
 
-          {/* Lines */}
+          {/* Líneas principales */}
           <Line
             type="monotone"
             dataKey="planeado"
@@ -228,12 +321,17 @@ export default function SCurveChart() {
         </ComposedChart>
       </ResponsiveContainer>
 
-      {/* Summary metrics */}
+      {/* Métricas resumen */}
       <div className="mt-4 grid grid-cols-2 sm:grid-cols-5 gap-4 border-t border-steel-100 pt-4">
         <div className="text-center">
           <p className="text-[10px] text-steel-400 uppercase tracking-wide font-medium">Semana Actual</p>
-          <p className="text-sm font-bold text-steel-800">{rawData[currentIdx].week}</p>
-          <p className="text-[10px] text-steel-400">{fmtDate(rawData[currentIdx].date)}</p>
+          <p className="text-sm font-bold text-steel-800 flex items-center justify-center gap-1">
+            {currentData.week}
+            {currentData.isCustom && (
+              <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">Nuevo</span>
+            )}
+          </p>
+          <p className="text-[10px] text-steel-400">{fmtDate(currentData.date)}</p>
         </div>
         <div className="text-center">
           <p className="text-[10px] text-steel-400 uppercase tracking-wide font-medium">Avance Planificado</p>
