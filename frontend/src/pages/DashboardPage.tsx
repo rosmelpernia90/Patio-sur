@@ -148,10 +148,19 @@ const weeklyProgMap = new Map<number, number>([
 // Costo Real acumulado del proyecto (AC / ACWP)
 const ACTUAL_COST_TOTAL = 8741569503;
 
-// Costo Proyectado (EAC) — desde Caso de Negocio
+// Costo Proyectado (EAC) — sincronizado con Caso de Negocio via localStorage
 // Fuente: "Detallado caso de negocio_220126.xlsx"
-const COSTO_PRESUPUESTADO = 29457164387; // Presupuesto original de costos
-const EAC_BOTTOM_UP = 25157352188;       // Proyección bottom-up del equipo
+const EAC_DEFAULT_SIN_FIN = 28082164388;  // Fallback sin financiación
+const EAC_DEFAULT_CON_FIN = 29457164387;  // Fallback con financiación
+const LS_EAC_KEY = 'patio_sur_eac_caso_negocio';
+
+function loadEAC(): { sinFin: number; conFin: number } {
+  try {
+    const saved = localStorage.getItem(LS_EAC_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return { sinFin: EAC_DEFAULT_SIN_FIN, conFin: EAC_DEFAULT_CON_FIN };
+}
 
 // Real project data from Oferta Mercantil and Presupuesto
 const dashboardData = {
@@ -170,9 +179,9 @@ const dashboardData = {
     total_approved_changes: 0,
     total_current_budget: 41012884481,
     total_committed: 13159418623,
-    total_actual: 8530521315,
-    total_available: 27853465858,
-    consumption_percentage: 20.8,
+    total_actual: 8741569503,
+    total_available: 27642362166,
+    consumption_percentage: 21.3,
   },
   // Fuente: Flujo de caja patio sur 26 marzo.xlsx (FC X OBRAS) + Pagos Proyeccion.xlsx (Otros Pagos)
   cash_flow_entries: [
@@ -191,14 +200,13 @@ const dashboardData = {
     { id: '13', project_id: '', year: 2026, month: 10, period_label: 'Oct 2026', projected_income: 17714279534, projected_expense: 500000000, projected_net: 17214279534, actual_income: 0, actual_expense: 0, actual_net: 0, is_negative_cash_flow: false },
     { id: '14', project_id: '', year: 2026, month: 11, period_label: 'Nov 2026', projected_income: 16207000000, projected_expense: 300000000, projected_net: 15907000000, actual_income: 0, actual_expense: 0, actual_net: 0, is_negative_cash_flow: false },
   ],
-  // Alertas actualizadas con datos reales del analisis de archivos SharePoint
-  alerts: [
+  // Alertas base (las dinámicas se generan en el componente)
+  alerts_static: [
     { id: '1', severity: 'critical' as const, title: 'Re-baseline: cronograma extendido 48 dias', message: 'Cronograma re-baselineado de 405 a 453 dias (fin: 16 Sep 2026 vs 30 Jul 2026 original). SPI contractual = 0.73 (27% atrasado). Fecha contractual: 3 Jul 2026.' },
     { id: '2', severity: 'critical' as const, title: 'Causa raiz del atraso: problemas financieros', message: 'Segun reporte Patio Sur (7 mar): "Retraso en inicio de actividades por problemas financieros de PC MEJIA". Solo $7,511M cobrados de $16,745M facturados (45%).' },
     { id: '3', severity: 'critical' as const, title: 'Compensacion Reactiva: margen negativo -37.4%', message: 'Costo estimado ($751.9M) supera venta ($547.2M). Perdida confirmada de $204.7M en este capitulo.' },
     { id: '4', severity: 'warning' as const, title: 'Credito puente $17,000M al 13.66% anual', message: 'Desembolso 6 Feb 2026. Pago bullet Feb 2027. Intereses totales ~$3,711M (9% del contrato). Cobro de facturacion con 9 meses de desfase.' },
     { id: '5', severity: 'warning' as const, title: '40% del presupuesto pendiente de negociar', message: '$11,132M de $28,082M aun sin adjudicar. Ahorro en compras logrado: $3,790M (15.6%). Principales pendientes: cables BT/DC, SPE, compensacion reactiva.' },
-    { id: '6', severity: 'info' as const, title: 'Avance Curva S re-baselineada: en tiempo', message: 'Semana S-40 (25 Mar): Planificado 51.9% vs Real 52.2%. SPI (base revisada) = 1.006. Desviacion: +0.3%.' },
   ],
   counts: {
     recent_transactions: 47,
@@ -207,7 +215,7 @@ const dashboardData = {
   },
   earned_value: {
     bac: 41012884481,
-    actual_cost: 8530521315,
+    actual_cost: 8741569503,
     earned_value_amount: 21416929000,   // BAC × 52.22% (Curva S 19 mar, semana S-40)
     planned_value_amount: 21285687000,  // BAC × 51.90% (linea base revisada 19 mar)
     cpi: 1.17,                          // Costo presupuestado / EAC bottom-up = $29,457M / $25,157M
@@ -227,11 +235,12 @@ export default function DashboardPage() {
   const [showCostoDetail, setShowCostoDetail] = useState(false);
   const [showSPIDetail, setShowSPIDetail] = useState(false);
   const [customWeeks, setCustomWeeks] = useState<CustomWeekData[]>(loadCustomWeeks);
+  const [eacData, setEacData] = useState(loadEAC);
 
-  // Re-leer localStorage al montar (por si el usuario viene de Cronograma)
-  useEffect(() => { setCustomWeeks(loadCustomWeeks()); }, []);
+  // Re-leer localStorage al montar (por si el usuario viene de Cronograma o Caso de Negocio)
+  useEffect(() => { setCustomWeeks(loadCustomWeeks()); setEacData(loadEAC()); }, []);
   useEffect(() => {
-    const h = () => setCustomWeeks(loadCustomWeeks());
+    const h = () => { setCustomWeeks(loadCustomWeeks()); setEacData(loadEAC()); };
     window.addEventListener('storage', h);
     return () => window.removeEventListener('storage', h);
   }, []);
@@ -276,24 +285,100 @@ export default function DashboardPage() {
   }, [customWeeks]);
 
   // CPI dinámico: EV / AC
+  // BAC = Costo Total Caso de Negocio (con financiación) — presupuesto de costos
   // EV = BAC × % avance real (de la última semana del Cronograma)
   // AC = Costo Real acumulado (de Flujo de Caja)
   const dynamicCPI = useMemo(() => {
-    const bac = 41012884481;
+    const eacConFin = eacData.conFin;
+    const eacSinFin = eacData.sinFin;
+    const bac = eacConFin; // BAC = Costo Total Caso de Negocio
     const ev = bac * dynamicSPI.real / 100;
     const ac = ACTUAL_COST_TOTAL;
     const cpi = ac > 0 ? ev / ac : 0;
-    const cpiCosto = EAC_BOTTOM_UP > 0 ? COSTO_PRESUPUESTADO / EAC_BOTTOM_UP : 0;
-    const pctBajoPresupuesto = Math.round((1 - EAC_BOTTOM_UP / COSTO_PRESUPUESTADO) * 100);
 
     return {
       cpi: Math.round(cpi * 100) / 100,
-      cpiCosto: Math.round(cpiCosto * 100) / 100,
       ev,
       ac,
-      pctBajoPresupuesto,
+      bac,
+      eacConFin,
+      eacSinFin,
     };
-  }, [dynamicSPI]);
+  }, [dynamicSPI, eacData]);
+
+  // Alertas dinámicas — se generan con los valores actuales de cada fuente
+  // IMPORTANTE: debe estar antes del early return para respetar Rules of Hooks
+  const dynamicAlerts = useMemo(() => {
+    const alerts: { id: string; severity: 'critical' | 'warning' | 'info'; title: string; message: string }[] = [];
+
+    // 1. SPI Cronograma — desde Cronograma
+    if (dynamicSPI.spi < 0.95) {
+      alerts.push({
+        id: 'spi-atraso',
+        severity: 'critical',
+        title: `Atraso en cronograma: SPI ${dynamicSPI.spi.toFixed(2)} (${dynamicSPI.weekLabel})`,
+        message: `Avance real ${dynamicSPI.real.toFixed(1)}% vs planificado ${dynamicSPI.prog.toFixed(1)}%. Desviacion: ${dynamicSPI.desviacion.toFixed(1)}%. Semana ${dynamicSPI.weekLabel} (${dynamicSPI.weekDate}). Fuente: Cronograma.`,
+      });
+    } else if (dynamicSPI.spi < 1.0) {
+      alerts.push({
+        id: 'spi-leve',
+        severity: 'warning',
+        title: `Leve atraso en cronograma: SPI ${dynamicSPI.spi.toFixed(2)} (${dynamicSPI.weekLabel})`,
+        message: `Avance real ${dynamicSPI.real.toFixed(1)}% vs planificado ${dynamicSPI.prog.toFixed(1)}%. Desviacion: ${dynamicSPI.desviacion.toFixed(1)}%. Fuente: Cronograma.`,
+      });
+    } else {
+      alerts.push({
+        id: 'spi-ok',
+        severity: 'info',
+        title: `Avance en tiempo: SPI ${dynamicSPI.spi.toFixed(2)} (${dynamicSPI.weekLabel})`,
+        message: `Avance real ${dynamicSPI.real.toFixed(1)}% vs planificado ${dynamicSPI.prog.toFixed(1)}%. Desviacion: +${dynamicSPI.desviacion.toFixed(1)}%. Fuente: Cronograma.`,
+      });
+    }
+
+    // 2. CPI — desde Caso de Negocio + Flujo de Caja
+    if (dynamicCPI.cpi < 0.9) {
+      alerts.push({
+        id: 'cpi-sobrecosto',
+        severity: 'critical',
+        title: `Sobrecosto: CPI ${dynamicCPI.cpi.toFixed(2)}`,
+        message: `EV ${formatCOP(dynamicCPI.ev)} vs AC ${formatCOP(dynamicCPI.ac)}. El proyecto gasta mas de lo presupuestado. Fuente: Caso de Negocio + Flujo de Caja.`,
+      });
+    } else if (dynamicCPI.cpi >= 0.9 && dynamicCPI.cpi < 1.0) {
+      alerts.push({
+        id: 'cpi-ajustado',
+        severity: 'warning',
+        title: `CPI ajustado: ${dynamicCPI.cpi.toFixed(2)}`,
+        message: `EV ${formatCOP(dynamicCPI.ev)} vs AC ${formatCOP(dynamicCPI.ac)}. Costo cercano al presupuesto. Fuente: Caso de Negocio + Flujo de Caja.`,
+      });
+    } else {
+      alerts.push({
+        id: 'cpi-eficiente',
+        severity: 'info',
+        title: `CPI eficiente: ${dynamicCPI.cpi.toFixed(2)} (${((dynamicCPI.cpi - 1) * 100).toFixed(0)}% bajo presupuesto)`,
+        message: `EV ${formatCOP(dynamicCPI.ev)} vs AC ${formatCOP(dynamicCPI.ac)}. Costo real por debajo del presupuestado. Fuente: Caso de Negocio + Flujo de Caja.`,
+      });
+    }
+
+    // 3. Ejecucion presupuestal — AC vs EAC (desde Flujo de Caja vs Caso de Negocio)
+    const pctEjecutado = (dynamicCPI.ac / dynamicCPI.eacConFin) * 100;
+    alerts.push({
+      id: 'ejecucion',
+      severity: pctEjecutado > 80 ? 'critical' : pctEjecutado > 50 ? 'warning' : 'info',
+      title: `Ejecucion presupuestal: ${pctEjecutado.toFixed(1)}% del EAC`,
+      message: `Costo real ${formatCOP(dynamicCPI.ac)} de ${formatCOP(dynamicCPI.eacConFin)} presupuestado. Fuente: Flujo de Caja vs Caso de Negocio.`,
+    });
+
+    // 4. Alertas fijas del proyecto (contexto histórico)
+    alerts.push(
+      { id: 'rebaseline', severity: 'critical', title: 'Re-baseline: cronograma extendido 48 dias', message: 'Cronograma re-baselineado de 405 a 453 dias (fin: 16 Sep 2026 vs 30 Jul 2026 original). SPI contractual = 0.73 (27% atrasado). Fecha contractual: 3 Jul 2026.' },
+      { id: 'financieros', severity: 'critical', title: 'Causa raiz del atraso: problemas financieros', message: 'Segun reporte Patio Sur (7 mar): "Retraso en inicio de actividades por problemas financieros de PC MEJIA". Solo $7,511M cobrados de $16,745M facturados (45%).' },
+      { id: 'comp-reactiva', severity: 'critical', title: 'Compensacion Reactiva: margen negativo -37.4%', message: 'Costo estimado ($751.9M) supera venta ($547.2M). Perdida confirmada de $204.7M en este capitulo. Fuente: Caso de Negocio.' },
+      { id: 'credito', severity: 'warning', title: 'Credito puente $17,000M al 13.66% anual', message: 'Desembolso 6 Feb 2026. Pago bullet Feb 2027. Intereses totales ~$3,711M (9% del contrato). Cobro de facturacion con 9 meses de desfase.' },
+      { id: 'pendiente', severity: 'warning', title: '40% del presupuesto pendiente de negociar', message: '$11,132M de $28,082M aun sin adjudicar. Ahorro en compras logrado: $3,790M (15.6%). Principales pendientes: cables BT/DC, SPE, compensacion reactiva.' },
+    );
+
+    return alerts;
+  }, [dynamicSPI, dynamicCPI]);
 
   const { data: apiData, isLoading, error } = useQuery({
     queryKey: ['dashboard', projectId],
@@ -321,12 +406,13 @@ export default function DashboardPage() {
     } : {}),
   };
 
-  const costoPresupuestado = COSTO_PRESUPUESTADO;
-  const eacBottomUp = EAC_BOTTOM_UP;
+  // EAC sincronizado con Caso de Negocio
+  const eacConFin = dynamicCPI.eacConFin;
+  const eacSinFin = dynamicCPI.eacSinFin;
+  const utilidadProyectada = data.earned_value.bac - eacConFin;
   const ahorroCompras = 3790285190;
-  const ahorroTotal = costoPresupuestado - eacBottomUp;
   const margenOriginal = 28.2;
-  const margenProyectado = ((data.earned_value.bac - eacBottomUp) / data.earned_value.bac * 100);
+  const margenProyectado = ((data.earned_value.bac - eacConFin) / data.earned_value.bac * 100);
 
   return (
     <div className="space-y-6">
@@ -377,11 +463,11 @@ export default function DashboardPage() {
         <KPICard
           title="Costo Real (ACWP)"
           value={formatCOP(dynamicCPI.ac)}
-          subtitle={`${(dynamicCPI.ac / eacBottomUp * 100).toFixed(1)}% del EAC · Ver costo estimado`}
+          subtitle={`${(dynamicCPI.ac / eacConFin * 100).toFixed(1)}% del EAC · Ver costo estimado`}
           icon={TrendingDown}
-          trend={(dynamicCPI.ac / eacBottomUp * 100) > 90 ? 'down' : 'neutral'}
-          trendValue={`${(dynamicCPI.ac / eacBottomUp * 100).toFixed(1)}%`}
-          variant={(dynamicCPI.ac / eacBottomUp * 100) > 95 ? 'danger' : 'primary'}
+          trend={(dynamicCPI.ac / eacConFin * 100) > 90 ? 'down' : 'neutral'}
+          trendValue={`${(dynamicCPI.ac / eacConFin * 100).toFixed(1)}%`}
+          variant={(dynamicCPI.ac / eacConFin * 100) > 95 ? 'danger' : 'primary'}
           onClick={() => setShowCostoDetail(true)}
         />
         <KPICard
@@ -408,10 +494,10 @@ export default function DashboardPage() {
       <div>
         <KPICard
           title="Alertas Activas"
-          value={data.alerts.length}
-          subtitle={`${data.alerts.filter((a) => a.severity === 'critical').length} criticas · ${data.alerts.filter((a) => a.severity === 'warning').length} advertencias · ${data.alerts.filter((a) => a.severity === 'info').length} informativas`}
+          value={dynamicAlerts.length}
+          subtitle={`${dynamicAlerts.filter((a) => a.severity === 'critical').length} criticas · ${dynamicAlerts.filter((a) => a.severity === 'warning').length} advertencias · ${dynamicAlerts.filter((a) => a.severity === 'info').length} informativas`}
           icon={AlertTriangle}
-          variant={data.alerts.some((a) => a.severity === 'critical') ? 'danger' : 'warning'}
+          variant={dynamicAlerts.some((a) => a.severity === 'critical') ? 'danger' : 'warning'}
           onClick={() => navigate(`/projects/${projectId}/alerts`)}
           centered
         />
@@ -498,32 +584,32 @@ export default function DashboardPage() {
               <tr className="hover:bg-steel-50/50">
                 <td className="px-4 py-3 text-steel-700">Valor Planificado</td>
                 <td className="px-4 py-3 font-mono text-xs text-primary-600 font-semibold">PV / BCWS</td>
-                <td className="px-4 py-3 text-right font-semibold text-steel-800">{formatCOP(data.earned_value.planned_value_amount)}</td>
-                <td className="px-4 py-3 text-steel-400 text-xs">51.9% — Trabajo planificado a semana S-40 (linea base revisada 19 mar)</td>
+                <td className="px-4 py-3 text-right font-semibold text-steel-800">{formatCOP(dynamicSPI.pvAmount)}</td>
+                <td className="px-4 py-3 text-steel-400 text-xs">{dynamicSPI.prog.toFixed(1)}% — Trabajo planificado a semana {dynamicSPI.weekLabel} (linea base revisada)</td>
               </tr>
               <tr className="hover:bg-steel-50/50">
                 <td className="px-4 py-3 text-steel-700">Valor Ganado</td>
                 <td className="px-4 py-3 font-mono text-xs text-primary-600 font-semibold">EV / BCWP</td>
-                <td className="px-4 py-3 text-right font-semibold text-steel-800">{formatCOP(data.earned_value.earned_value_amount)}</td>
-                <td className="px-4 py-3 text-steel-400 text-xs">52.2% — Trabajo realmente completado (Curva S semana S-40, 25 Mar 2026)</td>
+                <td className="px-4 py-3 text-right font-semibold text-steel-800">{formatCOP(dynamicSPI.evAmount)}</td>
+                <td className="px-4 py-3 text-steel-400 text-xs">{dynamicSPI.real.toFixed(1)}% — Trabajo realmente completado (Curva S semana {dynamicSPI.weekLabel}, {dynamicSPI.weekDate})</td>
               </tr>
               <tr className="hover:bg-steel-50/50">
                 <td className="px-4 py-3 text-steel-700">Costo Real</td>
                 <td className="px-4 py-3 font-mono text-xs text-primary-600 font-semibold">AC / ACWP</td>
-                <td className="px-4 py-3 text-right font-semibold text-steel-800">{formatCOP(data.earned_value.actual_cost)}</td>
-                <td className="px-4 py-3 text-steel-400 text-xs">Lo que realmente se ha gastado</td>
+                <td className="px-4 py-3 text-right font-semibold text-steel-800">{formatCOP(ACTUAL_COST_TOTAL)}</td>
+                <td className="px-4 py-3 text-steel-400 text-xs">Lo que realmente se ha gastado — Fuente: Flujo de Caja</td>
               </tr>
-              <tr className="bg-emerald-50/60 cursor-pointer hover:bg-emerald-100/60 transition" onClick={() => setShowCPIDetail(true)}>
+              <tr className={`${dynamicCPI.cpi >= 1 ? 'bg-emerald-50/60' : 'bg-red-50/60'} cursor-pointer hover:bg-emerald-100/60 transition`} onClick={() => setShowCPIDetail(true)}>
                 <td className="px-4 py-3 font-semibold text-steel-800">Indice Rendimiento Costo</td>
                 <td className="px-4 py-3 font-mono text-xs text-emerald-700 font-bold">CPI</td>
-                <td className="px-4 py-3 text-right font-bold text-emerald-700 text-lg">{data.earned_value.cpi.toFixed(2)}</td>
-                <td className="px-4 py-3 text-steel-600 text-xs">17% bajo presupuesto. Ahorro proyectado $4,299M. <span className="text-primary-600 underline">Ver detalle</span></td>
+                <td className={`px-4 py-3 text-right font-bold text-lg ${dynamicCPI.cpi >= 1 ? 'text-emerald-700' : 'text-red-700'}`}>{dynamicCPI.cpi.toFixed(2)}</td>
+                <td className="px-4 py-3 text-steel-600 text-xs">EV/AC — {dynamicCPI.cpi >= 1 ? `${((dynamicCPI.cpi - 1) * 100).toFixed(0)}% eficiente` : `${((1 - dynamicCPI.cpi) * 100).toFixed(0)}% sobrecosto`}. Fuente: Caso de Negocio + Flujo de Caja. <span className="text-primary-600 underline">Ver detalle</span></td>
               </tr>
-              <tr className="bg-emerald-50/60">
-                <td className="px-4 py-3 font-semibold text-steel-800">SPI (Linea Base Revisada 19 Mar)</td>
-                <td className="px-4 py-3 font-mono text-xs text-emerald-700 font-bold">SPI Rev.</td>
-                <td className="px-4 py-3 text-right font-bold text-emerald-700 text-lg">{data.earned_value.spi.toFixed(2)}</td>
-                <td className="px-4 py-3 text-steel-600 text-xs">En tiempo vs cronograma revisado (453 dias, fin 16 Sep 2026)</td>
+              <tr className={`${dynamicSPI.spi >= 1 ? 'bg-emerald-50/60' : 'bg-amber-50/60'}`}>
+                <td className="px-4 py-3 font-semibold text-steel-800">SPI (Linea Base Revisada)</td>
+                <td className={`px-4 py-3 font-mono text-xs font-bold ${dynamicSPI.spi >= 1 ? 'text-emerald-700' : 'text-amber-700'}`}>SPI Rev.</td>
+                <td className={`px-4 py-3 text-right font-bold text-lg ${dynamicSPI.spi >= 1 ? 'text-emerald-700' : 'text-amber-700'}`}>{dynamicSPI.spi.toFixed(2)}</td>
+                <td className="px-4 py-3 text-steel-600 text-xs">{dynamicSPI.spi >= 1 ? 'En tiempo' : `${Math.abs(dynamicSPI.desviacion).toFixed(1)}% atrasado`} vs cronograma revisado — Semana {dynamicSPI.weekLabel} ({dynamicSPI.weekDate})</td>
               </tr>
               <tr className="bg-red-50/60">
                 <td className="px-4 py-3 font-semibold text-steel-800">SPI (Linea Base Contractual 27 Nov)</td>
@@ -534,8 +620,8 @@ export default function DashboardPage() {
               <tr className="bg-emerald-50/60">
                 <td className="px-4 py-3 font-semibold text-steel-800">Estimacion a la Terminacion</td>
                 <td className="px-4 py-3 font-mono text-xs text-primary-600 font-bold">EAC</td>
-                <td className="px-4 py-3 text-right font-bold text-steel-800">{formatCOP(data.earned_value.eac)}</td>
-                <td className="px-4 py-3 text-steel-600 text-xs">Costo total estimado (por debajo del BAC gracias al CPI favorable)</td>
+                <td className="px-4 py-3 text-right font-bold text-steel-800">{formatCOP(eacConFin)}</td>
+                <td className="px-4 py-3 text-steel-600 text-xs">Costo Total Caso de Negocio (con financiacion) — Fuente: Caso de Negocio (sincronizado)</td>
               </tr>
             </tbody>
           </table>
@@ -565,13 +651,13 @@ export default function DashboardPage() {
                   <div className="rounded-xl border-2 border-steel-300 bg-steel-50 p-4 text-center">
                     <p className="text-[10px] font-semibold text-steel-500 uppercase tracking-wider">Costo Real (ACWP)</p>
                     <p className="text-[10px] text-steel-400 mb-1">Lo que se ha gastado hoy</p>
-                    <p className="text-3xl font-black text-steel-800">{formatCOP(data.earned_value.actual_cost)}</p>
+                    <p className="text-3xl font-black text-steel-800">{formatCOP(ACTUAL_COST_TOTAL)}</p>
                     <p className="text-xs text-steel-500 mt-1 font-medium">{data.budget_summary.consumption_percentage}% del presupuesto</p>
                   </div>
                   <div className="rounded-xl border-2 border-primary-300 bg-primary-50 p-4 text-center">
                     <p className="text-[10px] font-semibold text-primary-600 uppercase tracking-wider">Costo Estimado Final (EAC)</p>
                     <p className="text-[10px] text-primary-400 mb-1">Proyeccion bottom-up al cierre</p>
-                    <p className="text-3xl font-black text-primary-800">{formatCOP(eacBottomUp)}</p>
+                    <p className="text-3xl font-black text-primary-800">{formatCOP(eacConFin)}</p>
                     <p className="text-xs text-primary-600 mt-1 font-medium">Fuente: Caso de Negocio</p>
                   </div>
                 </div>
@@ -585,22 +671,22 @@ export default function DashboardPage() {
                     <tbody className="divide-y divide-steel-100">
                       <tr className="hover:bg-steel-50">
                         <td className="py-2 text-steel-600">Materiales (compras OC)</td>
-                        <td className="py-2 text-right font-semibold text-steel-800">{formatCOP(7552521315)}</td>
-                        <td className="py-2 text-right text-steel-400">88.5%</td>
+                        <td className="py-2 text-right font-semibold text-steel-800">{formatCOP(7763569503)}</td>
+                        <td className="py-2 text-right text-steel-400">88.8%</td>
                       </tr>
                       <tr className="hover:bg-steel-50">
                         <td className="py-2 text-steel-600">Administrativos y generales</td>
                         <td className="py-2 text-right font-semibold text-steel-800">{formatCOP(500000000)}</td>
-                        <td className="py-2 text-right text-steel-400">5.9%</td>
+                        <td className="py-2 text-right text-steel-400">5.7%</td>
                       </tr>
                       <tr className="hover:bg-steel-50">
                         <td className="py-2 text-steel-600">Otros pagos realizados</td>
                         <td className="py-2 text-right font-semibold text-steel-800">{formatCOP(478000000)}</td>
-                        <td className="py-2 text-right text-steel-400">5.6%</td>
+                        <td className="py-2 text-right text-steel-400">5.5%</td>
                       </tr>
                       <tr className="bg-steel-50 font-semibold">
                         <td className="py-2 text-steel-700">Total Ejecutado (ACWP)</td>
-                        <td className="py-2 text-right text-steel-900">{formatCOP(data.earned_value.actual_cost)}</td>
+                        <td className="py-2 text-right text-steel-900">{formatCOP(ACTUAL_COST_TOTAL)}</td>
                         <td className="py-2 text-right text-steel-600">100%</td>
                       </tr>
                     </tbody>
@@ -636,7 +722,7 @@ export default function DashboardPage() {
                       </tr>
                       <tr className="border-t-2 border-primary-200 bg-primary-50 font-bold">
                         <td className="py-2.5 text-primary-800">EAC Total (Caso de Negocio)</td>
-                        <td className="py-2.5 text-right text-primary-900">{formatCOP(eacBottomUp)}</td>
+                        <td className="py-2.5 text-right text-primary-900">{formatCOP(eacConFin)}</td>
                         <td className="py-2.5 text-right text-primary-700">100%</td>
                       </tr>
                     </tbody>
@@ -647,12 +733,12 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <div className="rounded-xl bg-steel-50 border border-steel-200 p-3 text-center">
                     <p className="text-[10px] text-steel-400 font-medium uppercase">Presupuesto Directo</p>
-                    <p className="text-lg font-bold text-steel-700 mt-1">{formatCOP(costoPresupuestado)}</p>
+                    <p className="text-lg font-bold text-steel-700 mt-1">{formatCOP(eacSinFin)}</p>
                     <p className="text-[10px] text-steel-400">Caso de Negocio</p>
                   </div>
                   <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-center">
                     <p className="text-[10px] text-emerald-600 font-medium uppercase">Ahorro Proyectado</p>
-                    <p className="text-lg font-bold text-emerald-700 mt-1">{formatCOP(ahorroTotal)}</p>
+                    <p className="text-lg font-bold text-emerald-700 mt-1">{formatCOP(utilidadProyectada)}</p>
                     <p className="text-[10px] text-emerald-500">vs presupuesto</p>
                   </div>
                   <div className="rounded-xl bg-primary-50 border border-primary-200 p-3 text-center">
@@ -790,7 +876,7 @@ export default function DashboardPage() {
                     <div className="rounded-lg bg-white/60 p-2">
                       <p className="text-[9px] text-steel-400 uppercase">EV (Valor Ganado)</p>
                       <p className="text-xs font-bold font-mono text-steel-800">{formatCOP(dynamicCPI.ev)}</p>
-                      <p className="text-[9px] text-steel-400">BAC × {dynamicSPI.real.toFixed(1)}%</p>
+                      <p className="text-[9px] text-steel-400">Costo Proy. × {dynamicSPI.real.toFixed(1)}%</p>
                     </div>
                     <div className="rounded-lg bg-white/60 p-2">
                       <p className="text-[9px] text-steel-400 uppercase">AC (Costo Real)</p>
@@ -800,25 +886,29 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* CPI Costo Proyectado */}
+                {/* EAC — Caso de Negocio */}
                 <div className="rounded-xl border border-steel-200 bg-steel-50 p-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-steel-700">CPI Costo (Presupuesto vs Proyeccion)</p>
-                    <span className={`text-xs font-bold rounded px-2 py-0.5 ${dynamicCPI.cpiCosto >= 1 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                      {dynamicCPI.cpiCosto.toFixed(2)}
-                    </span>
+                    <p className="text-xs font-bold text-steel-700">EAC — Costo Total Caso de Negocio</p>
                   </div>
-                  <p className="text-[10px] text-steel-500 mt-1">
-                    Costo Presupuestado ({formatCOP(costoPresupuestado)}) / EAC ({formatCOP(eacBottomUp)}) = {dynamicCPI.pctBajoPresupuesto}% bajo presupuesto
-                  </p>
-                  <p className="text-[10px] text-steel-400 mt-0.5">Fuente: Caso de Negocio</p>
+                  <div className="mt-2 space-y-1">
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-steel-500">Sin financiación</span>
+                      <span className="font-semibold text-steel-700">{formatCOP(eacSinFin)}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-steel-500">Con financiación</span>
+                      <span className="font-bold text-steel-900">{formatCOP(eacConFin)}</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-steel-400 mt-1.5">Fuente: Caso de Negocio (sincronizado)</p>
                 </div>
 
                 {/* Formula explanation */}
                 <div className="rounded-xl bg-primary-50 border border-primary-200 p-4">
                   <p className="text-xs font-bold text-primary-800">Formula EVM</p>
                   <p className="text-[11px] text-primary-700 mt-1 leading-relaxed">
-                    <strong>CPI = EV / AC</strong> — El Valor Ganado (EV = BAC × % avance real) se divide entre el Costo Real Acumulado (AC) del Flujo de Caja. Un CPI &gt; 1 indica que el proyecto genera mas valor del que cuesta. El CPI se actualiza automaticamente con el ultimo corte del Cronograma.
+                    <strong>CPI = EV / AC</strong> — El Valor Ganado (EV = Costo Presupuestado × % avance real) se divide entre el Costo Real Acumulado (AC) del Flujo de Caja. BAC = Costo Total Caso de Negocio ({formatCOP(eacConFin)}). Un CPI &gt; 1 indica eficiencia en costos. Se actualiza automaticamente con el ultimo corte del Cronograma.
                   </p>
                 </div>
 
@@ -858,8 +948,8 @@ export default function DashboardPage() {
                         <td className="py-2 text-right text-steel-400">—</td>
                       </tr>
                       <tr className={clsx('border-t-2 border-primary-200 bg-primary-50')}>
-                        <td className="py-2.5 font-bold text-primary-800">EAC Total (Bottom-Up)</td>
-                        <td className="py-2.5 text-right font-bold text-primary-900">{formatCOP(eacBottomUp)}</td>
+                        <td className="py-2.5 font-bold text-primary-800">EAC Total (Caso de Negocio)</td>
+                        <td className="py-2.5 text-right font-bold text-primary-900">{formatCOP(eacConFin)}</td>
                         <td className="py-2.5 text-right font-bold text-primary-700">100%</td>
                       </tr>
                     </tbody>
@@ -870,7 +960,7 @@ export default function DashboardPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
                     <p className="text-[10px] font-semibold text-emerald-600 uppercase">Ahorro Total Proyectado</p>
-                    <p className="text-xl font-black text-emerald-700 mt-1">{formatCOP(ahorroTotal)}</p>
+                    <p className="text-xl font-black text-emerald-700 mt-1">{formatCOP(utilidadProyectada)}</p>
                     <div className="mt-2 space-y-1">
                       <div className="flex justify-between text-[10px]">
                         <span className="text-emerald-600">Ahorro en compras</span>
@@ -878,7 +968,7 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex justify-between text-[10px]">
                         <span className="text-emerald-600">Ahorro admin/imprevistos</span>
-                        <span className="font-semibold text-emerald-700">{formatCOP(ahorroTotal - ahorroCompras)}</span>
+                        <span className="font-semibold text-emerald-700">{formatCOP(utilidadProyectada - ahorroCompras)}</span>
                       </div>
                     </div>
                   </div>
