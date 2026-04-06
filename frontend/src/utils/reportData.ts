@@ -160,6 +160,142 @@ export const procurementTotals = {
   pctPendiente: 30.5,
 };
 
+// ==================== LIVE EVM DATA ====================
+// Reads dynamic values from localStorage (same sources as Dashboard)
+// - SPI: from Cronograma (patio_sur_custom_weeks_v1)
+// - AC: ACTUAL_COST_TOTAL (Flujo de Caja)
+// - EAC/BAC: from Caso de Negocio (patio_sur_eac_caso_negocio)
+// - CPI: EV_cost / AC
+
+import cronogramaBase from '@/data/cronogramaData';
+import type { Activity } from '@/data/cronogramaData';
+
+const LS_WEEKS_KEY = 'patio_sur_custom_weeks_v1';
+const LS_EAC_KEY = 'patio_sur_eac_caso_negocio';
+const ACTUAL_COST_TOTAL = 8741569503;
+
+interface CustomWeekData { weekNum: number; label: string; dateLabel: string; values: Record<string, number> }
+
+function applyOverrides(acts: Activity[], overrides: Record<string, number>): Activity[] {
+  return acts.map(a => {
+    if (a.children && a.children.length > 0) {
+      const newChildren = applyOverrides(a.children, overrides);
+      const totalPeso = newChildren.reduce((s, c) => s + c.peso, 0);
+      const wReal = newChildren.reduce((s, c) => s + c.avanceReal * c.peso, 0);
+      return { ...a, children: newChildren, avanceReal: totalPeso > 0 ? Math.round(wReal / totalPeso * 10) / 10 : 0 };
+    }
+    return { ...a, avanceReal: overrides[a.code] !== undefined ? overrides[a.code] : a.avanceReal };
+  });
+}
+
+function computeProjectReal(values: Record<string, number>): number {
+  const tree = applyOverrides(cronogramaBase, values);
+  const totalPeso = tree.reduce((s, a) => s + a.peso, 0);
+  const weighted = tree.reduce((s, a) => s + a.avanceReal * a.peso, 0);
+  return totalPeso > 0 ? Math.round(weighted / totalPeso * 100) / 100 : 0;
+}
+
+const weeklyProgMap = new Map<number, number>([
+  [0,0],[1,0.30],[2,1.53],[3,3.21],[4,3.56],[5,3.88],[6,3.96],[7,4.04],
+  [8,4.11],[9,4.18],[10,4.25],[11,4.32],[12,4.39],[13,4.52],[14,4.77],[15,5.09],
+  [16,6.02],[17,7.07],[18,8.02],[19,10.25],[20,11.29],[21,12.86],[22,14.06],[23,15.51],
+  [24,16.93],[25,20.22],[26,21.88],[27,23.71],[28,24.49],[29,25.24],[30,27.11],[31,29.25],
+  [32,30.83],[33,34.45],[34,36.33],[35,37.74],[36,39.34],[37,42.54],[38,45.36],[39,48.77],
+  [40,51.90],[41,57.38],[42,59.73],[43,62.78],[44,65.31],[45,68.07],[46,76.00],[47,84.65],
+  [48,89.86],[49,91.27],[50,92.21],[51,92.77],[52,93.86],[53,94.32],[54,96.39],[55,96.94],
+  [56,97.14],[57,97.35],[58,97.52],[59,97.67],[60,97.91],[61,98.28],[62,98.63],[63,98.90],
+  [64,99.18],[65,100.00],[66,100.00],
+]);
+
+export interface LiveEVMData {
+  BAC: number;
+  PV: number;
+  EV: number;
+  AC: number;
+  CPI: number;
+  SPI: number;
+  EAC: number;
+  ETC: number;
+  VAC: number;
+  TCPI: number;
+  avanceFisico: number;
+  avancePlanificado: number;
+  avanceFinanciero: number;
+  weekLabel: string;
+  weekDate: string;
+}
+
+/** Returns EVM metrics computed from the latest dynamic sources (localStorage) */
+export function getLiveEarnedValueData(): LiveEVMData {
+  // 1. Read SPI source: Cronograma weeks
+  let latestWeekNum = 40;
+  let latestReal = 52.22;
+  let latestLabel = 'S-40';
+  let latestDate = '25 Mar';
+
+  try {
+    const raw = localStorage.getItem(LS_WEEKS_KEY);
+    if (raw) {
+      const weeks: CustomWeekData[] = JSON.parse(raw);
+      const sorted = [...weeks].sort((a, b) => a.weekNum - b.weekNum);
+      if (sorted.length > 0) {
+        const last = sorted[sorted.length - 1];
+        latestWeekNum = last.weekNum;
+        latestReal = computeProjectReal(last.values);
+        latestLabel = last.label;
+        latestDate = last.dateLabel;
+      }
+    }
+  } catch { /* use defaults */ }
+
+  const latestProg = weeklyProgMap.get(latestWeekNum) ?? 51.90;
+  const spi = latestProg > 0 ? Math.round((latestReal / latestProg) * 100) / 100 : 0;
+
+  // 2. Read EAC source: Caso de Negocio
+  let eacConFin = 29457164387;
+  try {
+    const raw = localStorage.getItem(LS_EAC_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      eacConFin = parsed.conFin ?? eacConFin;
+    }
+  } catch { /* use default */ }
+
+  // 3. Compute EVM
+  const BAC = budgetTotals.totalOferta;  // $41,012M (valor oferta contractual)
+  const AC = ACTUAL_COST_TOTAL;
+  const PV = BAC * latestProg / 100;
+  const EV_oferta = BAC * latestReal / 100; // EV sobre oferta (para SPI contractual)
+
+  // CPI uses BAC = Costo Total Caso de Negocio (not oferta)
+  const bacCosto = eacConFin;
+  const evCosto = bacCosto * latestReal / 100;
+  const cpi = AC > 0 ? Math.round((evCosto / AC) * 100) / 100 : 0;
+
+  const EAC = eacConFin;
+  const ETC = EAC - AC;
+  const VAC = BAC - EAC;
+  const TCPI = (BAC - AC) > 0 ? Math.round(((BAC - EV_oferta) / (BAC - AC)) * 100) / 100 : 0;
+
+  return {
+    BAC,
+    PV: Math.round(PV),
+    EV: Math.round(EV_oferta),
+    AC,
+    CPI: cpi,
+    SPI: spi,
+    EAC,
+    ETC,
+    VAC,
+    TCPI,
+    avanceFisico: Math.round(latestReal * 10) / 10,
+    avancePlanificado: Math.round(latestProg * 10) / 10,
+    avanceFinanciero: Math.round((AC / BAC) * 1000) / 10,
+    weekLabel: latestLabel,
+    weekDate: latestDate,
+  };
+}
+
 // ==================== FORMAT HELPERS ====================
 // Use centralized formatting utilities
 export const fmtCOP = formatCOPFull;

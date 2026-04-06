@@ -4,7 +4,7 @@ import {
   budgetData,
   budgetTotals,
   cashFlowData,
-  earnedValueData,
+  getLiveEarnedValueData,
   procurementData,
   procurementTotals,
 } from './reportData';
@@ -29,6 +29,8 @@ function autoWidth(ws: XLSX.WorkSheet, data: unknown[][]) {
 export function generateProjectStatusExcel() {
   const wb = createWorkbook();
 
+  const ev = getLiveEarnedValueData();
+
   // Sheet 1: KPIs
   const kpiData = [
     ['ESTADO GENERAL DEL PROYECTO'],
@@ -37,17 +39,19 @@ export function generateProjectStatusExcel() {
     [`Fecha: ${projectInfo.date}`],
     [],
     ['Indicador', 'Valor'],
-    ['Valor Oferta Total', budgetTotals.totalOferta],
-    ['Costo Total Estimado', budgetTotals.totalCosto],
+    ['Valor Oferta Total (BAC)', budgetTotals.totalOferta],
+    ['Costo Total Estimado (EAC)', ev.EAC],
+    ['Costo Real (AC)', ev.AC],
     ['Margen Global %', budgetTotals.margenGlobal / 100],
-    ['Avance Fisico %', earnedValueData.avanceFisico / 100],
-    ['Avance Financiero %', earnedValueData.avanceFinanciero / 100],
-    ['CPI', earnedValueData.CPI],
-    ['SPI', earnedValueData.SPI],
-    ['EAC', earnedValueData.EAC],
-    ['ETC', earnedValueData.ETC],
-    ['VAC', earnedValueData.VAC],
-    ['TCPI', earnedValueData.TCPI],
+    [`Avance Fisico % (${ev.weekLabel})`, ev.avanceFisico / 100],
+    [`Avance Planificado % (${ev.weekLabel})`, ev.avancePlanificado / 100],
+    ['Avance Financiero %', ev.avanceFinanciero / 100],
+    ['CPI', ev.CPI],
+    ['SPI', ev.SPI],
+    ['EAC', ev.EAC],
+    ['ETC', ev.ETC],
+    ['VAC', ev.VAC],
+    ['TCPI', ev.TCPI],
   ];
 
   const ws1 = XLSX.utils.aoa_to_sheet(kpiData);
@@ -185,21 +189,21 @@ export function generateEACReportExcel() {
   const wb = createWorkbook();
 
   // EVM Sheet
-  const ev = earnedValueData;
+  const ev4 = getLiveEarnedValueData();
   const evmHeader = ['Metrica', 'Valor', 'Interpretacion'];
   const evmRows = [
-    ['BAC', ev.BAC, 'Presupuesto total del proyecto'],
-    ['PV', ev.PV, 'Valor planificado a la fecha'],
-    ['EV', ev.EV, 'Valor ganado por trabajo completado'],
-    ['AC', ev.AC, 'Costo real incurrido a la fecha'],
-    ['CV (Cost Variance)', ev.EV - ev.AC, ev.EV - ev.AC < 0 ? 'Sobrecosto' : 'Bajo presupuesto'],
-    ['SV (Schedule Variance)', ev.EV - ev.PV, ev.EV - ev.PV < 0 ? 'Atraso' : 'Adelanto'],
-    ['CPI', ev.CPI, ev.CPI < 1 ? 'Gastando mas de lo planeado' : 'Eficiente'],
-    ['SPI', ev.SPI, ev.SPI < 1 ? 'Atrasado' : 'Adelantado'],
-    ['EAC', ev.EAC, 'Costo estimado total al finalizar'],
-    ['ETC', ev.ETC, 'Costo estimado para completar'],
-    ['VAC', ev.VAC, ev.VAC < 0 ? 'Sobrecosto proyectado' : 'Ahorro proyectado'],
-    ['TCPI', ev.TCPI, ev.TCPI > 1 ? 'Requiere mejorar eficiencia' : 'Alcanzable'],
+    ['BAC', ev4.BAC, 'Presupuesto total del proyecto'],
+    [`PV (${ev4.weekLabel})`, ev4.PV, 'Valor planificado a la fecha'],
+    [`EV (${ev4.weekLabel})`, ev4.EV, 'Valor ganado por trabajo completado'],
+    ['AC', ev4.AC, 'Costo real incurrido a la fecha'],
+    ['CV (Cost Variance)', ev4.EV - ev4.AC, ev4.EV - ev4.AC < 0 ? 'Sobrecosto' : 'Bajo presupuesto'],
+    ['SV (Schedule Variance)', ev4.EV - ev4.PV, ev4.EV - ev4.PV < 0 ? 'Atraso' : 'Adelanto'],
+    ['CPI', ev4.CPI, ev4.CPI < 1 ? 'Gastando mas de lo planeado' : 'Eficiente'],
+    ['SPI', ev4.SPI, ev4.SPI < 1 ? 'Atrasado' : 'Adelantado'],
+    ['EAC', ev4.EAC, 'Costo estimado total al finalizar'],
+    ['ETC', ev4.ETC, 'Costo estimado para completar'],
+    ['VAC', ev4.VAC, ev4.VAC < 0 ? 'Sobrecosto proyectado' : 'Ahorro proyectado'],
+    ['TCPI', ev4.TCPI, ev4.TCPI > 1 ? 'Requiere mejorar eficiencia' : 'Alcanzable'],
   ];
 
   const evmSheet = [evmHeader, ...evmRows];

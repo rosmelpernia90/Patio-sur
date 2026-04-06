@@ -5,9 +5,9 @@ import {
   budgetData,
   budgetTotals,
   cashFlowData,
-  earnedValueData,
   procurementData,
   procurementTotals,
+  getLiveEarnedValueData,
   fmtNum,
   fmtPct,
 } from './reportData';
@@ -131,6 +131,8 @@ export async function generateProjectStatusPDF() {
   const doc = new jsPDF();
   let y = await addHeader(doc, 'Estado General del Proyecto', 'Resumen ejecutivo con indicadores clave de desempeno');
 
+  const ev = getLiveEarnedValueData();
+
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...DARK);
@@ -139,13 +141,15 @@ export async function generateProjectStatusPDF() {
 
   const kpis = [
     ['Valor Oferta Total (BAC)', `$ ${fmtNum(budgetTotals.totalOferta)}`],
-    ['Costo Total Estimado', `$ ${fmtNum(budgetTotals.totalCosto)}`],
+    ['Costo Total Estimado (EAC)', `$ ${fmtNum(ev.EAC)}`],
     ['Margen Global', fmtPct(budgetTotals.margenGlobal)],
-    ['Avance Fisico', fmtPct(earnedValueData.avanceFisico)],
-    ['Avance Financiero', fmtPct(earnedValueData.avanceFinanciero)],
-    ['CPI (Indice Costo)', earnedValueData.CPI.toFixed(2)],
-    ['SPI (Indice Cronograma)', earnedValueData.SPI.toFixed(2)],
-    ['EAC (Estimado a Terminacion)', `$ ${fmtNum(earnedValueData.EAC)}`],
+    ['Avance Fisico (' + ev.weekLabel + ')', fmtPct(ev.avanceFisico)],
+    ['Avance Planificado (' + ev.weekLabel + ')', fmtPct(ev.avancePlanificado)],
+    ['Avance Financiero', fmtPct(ev.avanceFinanciero)],
+    ['CPI (Indice Costo)', ev.CPI.toFixed(2)],
+    ['SPI (Indice Cronograma)', ev.SPI.toFixed(2)],
+    ['Costo Real (AC)', `$ ${fmtNum(ev.AC)}`],
+    ['EAC (Estimado a Terminacion)', `$ ${fmtNum(ev.EAC)}`],
   ];
 
   autoTable(doc, {
@@ -214,20 +218,20 @@ export async function generateProjectStatusPDF() {
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...DARK);
-  doc.text('Analisis de Valor Ganado (Earned Value Management)', 14, y);
+  doc.text(`Analisis de Valor Ganado (EVM) — ${ev.weekLabel} (${ev.weekDate})`, 14, y);
   y += 8;
 
   const evRows = [
-    ['BAC — Presupuesto a la Terminacion', `$ ${fmtNum(earnedValueData.BAC)}`],
-    ['PV — Valor Planificado', `$ ${fmtNum(earnedValueData.PV)}`],
-    ['EV — Valor Ganado', `$ ${fmtNum(earnedValueData.EV)}`],
-    ['AC — Costo Real', `$ ${fmtNum(earnedValueData.AC)}`],
-    ['CPI — Indice de Rendimiento de Costo', earnedValueData.CPI.toFixed(2) + (earnedValueData.CPI < 1 ? '  ⚠ Sobrecosto' : '  ✓ Eficiente')],
-    ['SPI — Indice de Rendimiento de Cronograma', earnedValueData.SPI.toFixed(2) + (earnedValueData.SPI < 1 ? '  ⚠ Atraso' : '  ✓ En tiempo')],
-    ['EAC — Estimacion a la Terminacion', `$ ${fmtNum(earnedValueData.EAC)}`],
-    ['ETC — Estimado para Completar', `$ ${fmtNum(earnedValueData.ETC)}`],
-    ['VAC — Variacion a la Terminacion', `$ ${fmtNum(earnedValueData.VAC)}`],
-    ['TCPI — Indice de Desempeno Requerido', earnedValueData.TCPI.toFixed(2)],
+    ['BAC — Presupuesto a la Terminacion', `$ ${fmtNum(ev.BAC)}`],
+    ['PV — Valor Planificado (' + ev.weekLabel + ')', `$ ${fmtNum(ev.PV)}`],
+    ['EV — Valor Ganado (' + ev.weekLabel + ')', `$ ${fmtNum(ev.EV)}`],
+    ['AC — Costo Real', `$ ${fmtNum(ev.AC)}`],
+    ['CPI — Indice de Rendimiento de Costo', ev.CPI.toFixed(2) + (ev.CPI < 1 ? '  ⚠ Sobrecosto' : '  ✓ Eficiente')],
+    ['SPI — Indice de Rendimiento de Cronograma', ev.SPI.toFixed(2) + (ev.SPI < 1 ? '  ⚠ Atraso' : '  ✓ En tiempo')],
+    ['EAC — Estimacion a la Terminacion', `$ ${fmtNum(ev.EAC)}`],
+    ['ETC — Estimado para Completar', `$ ${fmtNum(ev.ETC)}`],
+    ['VAC — Variacion a la Terminacion', `$ ${fmtNum(ev.VAC)}`],
+    ['TCPI — Indice de Desempeno Requerido', ev.TCPI.toFixed(2)],
   ];
 
   autoTable(doc, {
@@ -390,26 +394,27 @@ export async function generateEACReportPDF() {
   const doc = new jsPDF();
   let y = await addHeader(doc, 'Reporte de Costos a Terminacion (EAC)', 'Analisis de Valor Ganado — Earned Value Management');
 
+  const ev4 = getLiveEarnedValueData();
+
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...DARK);
-  doc.text('Metricas de Valor Ganado', 14, y);
+  doc.text(`Metricas de Valor Ganado — ${ev4.weekLabel} (${ev4.weekDate})`, 14, y);
   y += 8;
 
-  const ev = earnedValueData;
   const evmRows = [
-    ['BAC — Budget At Completion',       `$ ${fmtNum(ev.BAC)}`,       'Presupuesto total del proyecto'],
-    ['PV — Planned Value',               `$ ${fmtNum(ev.PV)}`,        'Valor planificado a la fecha'],
-    ['EV — Earned Value',                `$ ${fmtNum(ev.EV)}`,        'Valor ganado por trabajo completado'],
-    ['AC — Actual Cost',                 `$ ${fmtNum(ev.AC)}`,        'Costo real incurrido a la fecha'],
-    ['CV — Cost Variance',               `$ ${fmtNum(ev.EV - ev.AC)}`, ev.EV - ev.AC < 0 ? 'SOBRECOSTO' : 'Bajo presupuesto'],
-    ['SV — Schedule Variance',           `$ ${fmtNum(ev.EV - ev.PV)}`, ev.EV - ev.PV < 0 ? 'ATRASO' : 'Adelanto'],
-    ['CPI — Cost Performance Index',     ev.CPI.toFixed(2),            ev.CPI < 1 ? 'Gastando mas de lo planeado' : 'Eficiente en costos'],
-    ['SPI — Schedule Performance Index', ev.SPI.toFixed(2),            ev.SPI < 1 ? 'Atrasado vs cronograma' : 'Adelantado'],
-    ['EAC — Estimate At Completion',     `$ ${fmtNum(ev.EAC)}`,       'Costo estimado total al finalizar'],
-    ['ETC — Estimate To Complete',       `$ ${fmtNum(ev.ETC)}`,       'Costo estimado para completar'],
-    ['VAC — Variance At Completion',     `$ ${fmtNum(ev.VAC)}`,       ev.VAC < 0 ? 'Sobrecosto proyectado' : 'Ahorro proyectado'],
-    ['TCPI — To-Complete Performance',   ev.TCPI.toFixed(2),           ev.TCPI > 1 ? 'Requiere mejorar eficiencia' : 'Alcanzable'],
+    ['BAC — Budget At Completion',       `$ ${fmtNum(ev4.BAC)}`,       'Presupuesto total del proyecto'],
+    ['PV — Planned Value (' + ev4.weekLabel + ')',  `$ ${fmtNum(ev4.PV)}`,  'Valor planificado a la fecha'],
+    ['EV — Earned Value (' + ev4.weekLabel + ')',   `$ ${fmtNum(ev4.EV)}`,  'Valor ganado por trabajo completado'],
+    ['AC — Actual Cost',                 `$ ${fmtNum(ev4.AC)}`,        'Costo real incurrido a la fecha'],
+    ['CV — Cost Variance',               `$ ${fmtNum(ev4.EV - ev4.AC)}`, ev4.EV - ev4.AC < 0 ? 'SOBRECOSTO' : 'Bajo presupuesto'],
+    ['SV — Schedule Variance',           `$ ${fmtNum(ev4.EV - ev4.PV)}`, ev4.EV - ev4.PV < 0 ? 'ATRASO' : 'Adelanto'],
+    ['CPI — Cost Performance Index',     ev4.CPI.toFixed(2),            ev4.CPI < 1 ? 'Gastando mas de lo planeado' : 'Eficiente en costos'],
+    ['SPI — Schedule Performance Index', ev4.SPI.toFixed(2),            ev4.SPI < 1 ? 'Atrasado vs cronograma' : 'Adelantado'],
+    ['EAC — Estimate At Completion',     `$ ${fmtNum(ev4.EAC)}`,       'Costo estimado total al finalizar'],
+    ['ETC — Estimate To Complete',       `$ ${fmtNum(ev4.ETC)}`,       'Costo estimado para completar'],
+    ['VAC — Variance At Completion',     `$ ${fmtNum(ev4.VAC)}`,       ev4.VAC < 0 ? 'Sobrecosto proyectado' : 'Ahorro proyectado'],
+    ['TCPI — To-Complete Performance',   ev4.TCPI.toFixed(2),           ev4.TCPI > 1 ? 'Requiere mejorar eficiencia' : 'Alcanzable'],
   ];
 
   autoTable(doc, {
