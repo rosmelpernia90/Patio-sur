@@ -2,6 +2,48 @@ import { useState } from 'react';
 import { AlertTriangle, Package, HardHat, Briefcase, Wrench, ChevronDown, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
 import type { ElementType } from 'react';
+const budgetHelp = {
+  pageTitle: 'Ayuda — Presupuesto Detallado',
+  description:
+    'Desglose del presupuesto por capítulos y actividades del proyecto Patio de Operacion Sur. ' +
+    'Muestra costo vs venta para cada ítem con indicadores de margen. ' +
+    'Fuente: hoja "PS USD4000costo" del archivo "Detallado caso de negocio_220126.xlsx".',
+  sections: [
+    {
+      title: 'Grupos del Presupuesto',
+      items: [
+        { color: '#1B5EAB', label: 'Materiales y Equipos', description: 'Suministro de equipos electromecánicos: cargadores (450kW/60kW), transformadores, celdas MT, cables BT/DC, SPE/SPT. 8 capítulos.' },
+        { color: '#16A34A', label: 'Obra Civil y Eléctrica', description: 'Instalación, montaje y trabajos en sitio: excavaciones, estructuras, tendido de cables, pruebas. 5 capítulos.' },
+        { color: '#7C3AED', label: 'Administración (AIU)', description: 'Administración (11%), Imprevistos (2%), Utilidad (4%) aplicados sobre el costo directo total.' },
+      ],
+    },
+    {
+      title: 'Indicadores de Margen por Capítulo',
+      items: [
+        { color: '#16A34A', label: 'Verde — Margen ≥ 10%', description: 'Capítulo con margen saludable. El precio de venta cubre el costo con holgura razonable.' },
+        { color: '#D97706', label: 'Amarillo — Margen 0%–10%', description: 'Margen ajustado, requiere monitoreo activo. Ej: Transformadores (9.5%), SPE/SPT (1.9%).' },
+        { color: '#DC2626', label: 'Rojo — Margen < 0% (Pérdida)', description: 'El costo estimado supera la venta. Pérdida confirmada. Ej: Compensación Reactiva (-37.4%, -$204M).' },
+      ],
+    },
+    {
+      title: 'Estructura del Desglose',
+      items: [
+        { icon: '📂', label: 'Grupos', description: '3 grupos principales que organizan los 15 capítulos del contrato.' },
+        { icon: '📁', label: 'Capítulos', description: '15 capítulos del contrato con subtotal de costo y venta. Click en el nombre para expandir.' },
+        { icon: '📋', label: 'Secciones e ítems', description: 'Cada capítulo tiene secciones con ítems individuales (unidad, cantidad, costo unitario, venta unitaria).' },
+      ],
+    },
+    {
+      title: 'KPIs Globales',
+      items: [
+        { icon: '💲', label: 'Costo Total', description: 'Suma de costos directos de los 15 capítulos + AIU (11% admin + 2% imprevistos).' },
+        { icon: '📈', label: 'Venta Total', description: 'Suma de ventas de los 15 capítulos + AIU. Debe coincidir con la Oferta Mercantil.' },
+        { icon: '🎯', label: 'Margen Neto', description: 'Venta Total − Costo Total. Porcentaje sobre la venta total. Meta: ≥ 28%.' },
+        { icon: '⚠️', label: 'Capítulos con Pérdida', description: 'Capítulos donde el costo supera la venta. Requieren negociación o revisión de alcance.' },
+      ],
+    },
+  ],
+};
 
 const fmtM = (v: number) => Math.round(v / 1_000_000).toLocaleString('es-CO') + ' M';
 const fmtCOP = (v: number) => '$' + Math.round(v).toLocaleString('es-CO');

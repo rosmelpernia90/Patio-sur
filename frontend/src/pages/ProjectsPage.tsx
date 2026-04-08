@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Calendar, DollarSign, Building2, Zap, Loader, Paperclip, FileText, Download, X, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import { projectsApi } from '@/services/api/projects';
 import { formatCOPFull } from '@/utils/formatNumbers';
+import { getCronogramaStats } from '@/utils/cronogramaStats';
 
 // Use full currency format for project budget display
 const formatCOP = formatCOPFull;
@@ -17,18 +18,6 @@ const statusLabels: Record<string, { label: string; color: string }> = {
   cancelled: { label: 'Cancelado', color: 'bg-red-50 text-red-700 border border-red-200' },
 };
 
-// Helper to calculate time progress percentage
-const getTimeProgressPercentage = (startDate: string, endDate: string): number => {
-  const start = new Date(startDate).getTime();
-  const end = new Date(endDate).getTime();
-  const now = new Date().getTime();
-
-  if (now >= end) return 100;
-  if (now <= start) return 0;
-
-  return Math.round(((now - start) / (end - start)) * 100);
-};
-
 interface DocInfo { filename: string; previewable: boolean; }
 
 export default function ProjectsPage() {
@@ -36,6 +25,9 @@ export default function ProjectsPage() {
     queryKey: ['projects'],
     queryFn: () => projectsApi.list(),
   });
+
+  // Leer stats del Cronograma (fuente única de verdad para avance)
+  const cronStats = useMemo(() => getCronogramaStats(), []);
 
   // Oferta mercantil per project: projectId → DocInfo
   const [ofertas, setOfertas] = useState<Record<string, DocInfo>>({});
@@ -105,7 +97,6 @@ export default function ProjectsPage() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => {
             const statusConfig = statusLabels[project.status] || statusLabels.planning;
-            const timeProgress = getTimeProgressPercentage(project.start_date, project.estimated_end_date);
             const oferta = ofertas[project.id];
 
             return (
@@ -145,21 +136,41 @@ export default function ProjectsPage() {
                     </div>
                   </div>
 
-                  <div className="mb-2">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-steel-400 font-medium">Avance temporal (plazo)</span>
-                      <span className="font-bold text-steel-700">{timeProgress}%</span>
+                  {/* Avance del Cronograma — fuente: Cronograma (pestaña) */}
+                  <div className="mb-2 space-y-2">
+                    <div className="flex justify-between text-xs mb-0.5">
+                      <span className="text-steel-400 font-medium">
+                        Avance planificado ({cronStats.weekLabel})
+                      </span>
+                      <span className="font-bold text-primary-700">{cronStats.planned}%</span>
                     </div>
                     <div className="h-2 bg-steel-100 rounded-full">
                       <div
                         className="h-full bg-primary-500 rounded-full transition-all"
-                        style={{ width: `${Math.min(timeProgress, 100)}%` }}
+                        style={{ width: `${Math.min(cronStats.planned, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs mb-0.5">
+                      <span className="text-steel-400 font-medium">
+                        Avance real ({cronStats.weekLabel}, {cronStats.dateLabel})
+                      </span>
+                      <span className={clsx('font-bold', cronStats.real >= cronStats.planned ? 'text-emerald-600' : 'text-amber-600')}>
+                        {cronStats.real}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-steel-100 rounded-full">
+                      <div
+                        className={clsx('h-full rounded-full transition-all', cronStats.real >= cronStats.planned ? 'bg-emerald-500' : 'bg-amber-400')}
+                        style={{ width: `${Math.min(cronStats.real, 100)}%` }}
                       />
                     </div>
                   </div>
 
-                  <div className="mt-3 pt-3 border-t border-steel-100 text-[10px] text-steel-400">
+                  <div className="mt-3 pt-3 border-t border-steel-100 text-[10px] text-steel-400 flex items-center justify-between">
                     <span>Estado: {statusConfig.label}</span>
+                    <span className={clsx('font-semibold', cronStats.spi >= 1 ? 'text-emerald-600' : 'text-amber-600')}>
+                      SPI {cronStats.spi.toFixed(2)}
+                    </span>
                   </div>
                 </Link>
 

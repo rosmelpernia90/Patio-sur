@@ -12,6 +12,7 @@ import DocumentsPage from './pages/DocumentsPage';
 import BusinessCasePage from './pages/BusinessCasePage';
 import AlertsPage from './pages/AlertsPage';
 import CronogramaPage from './pages/CronogramaPage';
+import AIAnalyzerPage from './pages/AIAnalyzerPage';
 import { useAuthStore } from './stores/authStore';
 
 export default function App() {
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="projects/:projectId/business-case" element={<BusinessCasePage />} />
         <Route path="projects/:projectId/alerts" element={<AlertsPage />} />
         <Route path="projects/:projectId/cronograma" element={<CronogramaPage />} />
+        <Route path="projects/:projectId/ai-analyzer" element={<AIAnalyzerPage />} />
       </Route>
 
       {/* Catch-all: redirect to login */}

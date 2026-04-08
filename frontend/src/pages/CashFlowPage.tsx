@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { formatCOP, formatCOPFull } from '@/utils/formatNumbers';
+import { useAuthStore } from '@/stores/authStore';
+import { logEdit } from '@/utils/activityTracker';
 import {
   Download, AlertTriangle, TrendingDown, Wallet, CreditCard,
   ArrowDownRight, ArrowUpRight, Landmark, GripVertical,
@@ -325,18 +327,52 @@ const ESTADO_BADGE: Record<string, { label: string; cls: string }> = {
 const cashFlowHelp = {
   pageTitle: 'Ayuda — Flujo de Caja',
   description:
-    'El Flujo de Caja proyecta los movimientos de efectivo del proyecto mes a mes. ' +
-    'Los pagos se organizan en tres grupos: Materiales, Mano de Obra y Administracion. ' +
-    'Puede mover items entre grupos, incluir/excluir nomina externa y simular escenarios de ingreso.',
+    'Proyeccion mensual de movimientos de efectivo del proyecto Patio de Operacion Sur. ' +
+    'Permite visualizar ingresos vs egresos, simular escenarios de liquidez, gestionar credito puente y controlar pagos por categoria.',
   sections: [
     {
-      title: 'Funcionalidades',
+      title: 'Grupos de Pago',
       items: [
-        { icon: '📦', label: 'Grupos de pago', description: 'Los pagos se organizan en Materiales, Mano de Obra y Administracion. Puede mover items entre grupos con el selector de grupo.' },
-        { icon: '👷', label: 'Nomina Externa', description: 'Items de nomina/factoring de otros proyectos cargados a Patio Sur. Use el boton +/- para incluirlos o excluirlos del total de gastos.' },
-        { icon: '🟡', label: 'Falta por pagar (amarillo)', description: 'Los montos en amarillo representan el saldo pendiente de pago de cada concepto.' },
-        { icon: '💰', label: 'Ingresos y escenarios', description: 'El ingreso de Feb 2026 es editable. Agregue escenarios de ingreso adicional para evaluar necesidades de liquidez.' },
-        { icon: '🔔', label: 'Alertas inteligentes', description: 'El sistema genera alertas automaticas cuando detecta que los fondos disponibles no cubren los pagos pendientes.' },
+        { icon: '📦', label: 'Materiales, Equipos y Obras', description: 'Cargadores 450 kW, transformadores, celdas MT/BT, obra civil, redes electricas, software SCADA y demas suministros fisicos del proyecto.' },
+        { icon: '👷', label: 'Mano de Obra', description: 'Ingenieros residentes, personal tecnico, interventoria y cuadrillas de instalacion y montaje electrico.' },
+        { icon: '🗂️', label: 'Administracion y Gastos Indirectos', description: 'Polizas, seguros, tramites ante Codensa/IDU/Alcaldia, gastos de oficina, transporte y honorarios de gerencia.' },
+        { icon: '↔️', label: 'Mover entre grupos', description: 'Cada item tiene un selector de grupo. Cambie la asignacion para reclasificar un costo sin eliminarlo.' },
+      ],
+    },
+    {
+      title: 'Estados de Pago',
+      items: [
+        { color: '#16A34A', label: 'Pagado', description: 'El pago fue procesado y registrado. El monto "Por Pagar" es cero.' },
+        { color: '#D97706', label: 'Parcial', description: 'Se realizo un pago parcial. Quedan saldos pendientes reflejados en amarillo.' },
+        { color: '#DC2626', label: 'Pendiente', description: 'Sin ningun pago realizado aun.' },
+        { color: '#CA8A04', label: 'Por negociar', description: 'Contrato o monto en proceso de negociacion. Los valores pueden cambiar.' },
+      ],
+    },
+    {
+      title: 'Ingresos y Escenarios',
+      items: [
+        { icon: '💰', label: 'Ingreso recibido Feb 2026', description: 'Primer ingreso real del cliente Consorcio Express por $16.745M. Este valor es editable para reflejar ajustes o retenciones.' },
+        { icon: '📅', label: 'Periodo del ingreso', description: 'Al agregar un escenario, seleccione el mes (ej. "Jun 2026") en el que se espera recibir el pago. No se requiere dia especifico.' },
+        { icon: '➕', label: 'Agregar escenario', description: 'Simule un ingreso futuro esperado: defina el monto y el periodo. El sistema recalcula automaticamente el flujo de caja y las alertas.' },
+        { icon: '🗑️', label: 'Eliminar escenario', description: 'Borre escenarios que ya no apliquen. Los escenarios con monto cero no afectan el flujo.' },
+      ],
+    },
+    {
+      title: 'Credito Puente',
+      items: [
+        { icon: '🏦', label: 'Desembolso', description: 'Monto del credito bancario solicitado para cubrir el desfase entre pagos a proveedores e ingresos del cliente. Por defecto $17.000M.' },
+        { icon: '📈', label: 'Tasa de interes', description: 'Tasa efectiva anual del credito. Actualmente 13.66% EA. Modifique para comparar escenarios financieros.' },
+        { icon: '🧾', label: 'GMF y Comision', description: 'Gravamen al Movimiento Financiero (0.395%) y comision de desembolso (1.1%) aplicadas al credito.' },
+        { icon: '🗓️', label: 'Meses de credito', description: 'Plazo del credito en meses. Afecta el calculo del costo financiero total y el impacto sobre el margen del proyecto.' },
+      ],
+    },
+    {
+      title: 'Graficas y Alertas',
+      items: [
+        { icon: '📊', label: 'Grafica de flujo', description: 'Barras agrupadas de Ingresos vs Egresos por mes, con linea de saldo acumulado. Los meses con ingreso de capital se resaltan en verde.' },
+        { icon: '👷', label: 'Nomina Externa', description: 'Items de nomina/factoring de otros proyectos cargados a Patio Sur. Use el boton +/- para incluirlos o excluirlos del total de egresos.' },
+        { icon: '🔔', label: 'Alertas de liquidez', description: 'El sistema detecta automaticamente cuando los fondos disponibles no cubren los pagos pendientes y genera una alerta con la brecha de liquidez.' },
+        { icon: '📋', label: 'Detalle mensual', description: 'Haga clic en cualquier barra de la grafica para ver el desglose de pagos programados para ese mes por proveedor y concepto.' },
       ],
     },
   ],
@@ -356,6 +392,7 @@ const formatShort = formatCOP;
 // ============================================================
 export default function CashFlowPage() {
   useParams();
+  const user = useAuthStore((s) => s.user);
 
   // ── Server-side persistence helpers ──
   const savePref = (key: string, data: unknown) => {
@@ -472,13 +509,8 @@ export default function CashFlowPage() {
   // Monto de capital para escenarios tipo "capital"
   const [scenarioCapitalAmount, setScenarioCapitalAmount] = useState(0);
 
-  // Fecha del escenario (día/mes/año)
-  const [scenarioDay, setScenarioDay] = useState(1);
-  const [scenarioMonth, setScenarioMonth] = useState(2); // Febrero 2026
-  const [scenarioYear, setScenarioYear] = useState(2026);
-
-  // Error de validación del escenario
-  const [scenarioError, setScenarioError] = useState<string | null>(null);
+  // Periodo del escenario (mes/año como "MM/YYYY")
+  const [scenarioPeriod, setScenarioPeriod] = useState('04/2026'); // Mes actual
 
   // Action plan expansion state
   const [expandedActions, setExpandedActions] = useState<Record<string, boolean>>({
@@ -654,39 +686,7 @@ export default function CashFlowPage() {
     setShowScenarioModal(true);
   };
 
-  // Validar fecha del escenario
-  const validateScenarioDate = (): boolean => {
-    setScenarioError(null);
-
-    // Validar que la fecha sea válida
-    const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    // Considerar años bisiestos
-    const isLeapYear = (scenarioYear % 4 === 0 && scenarioYear % 100 !== 0) || (scenarioYear % 400 === 0);
-    if (isLeapYear) daysInMonth[1] = 29;
-
-    if (scenarioDay < 1 || scenarioDay > daysInMonth[scenarioMonth - 1]) {
-      setScenarioError(`El día ${scenarioDay} no es válido para el mes ${scenarioMonth}/${scenarioYear}`);
-      return false;
-    }
-
-    // Validar que no sea una fecha pasada (comparar con fecha actual)
-    const today = new Date();
-    const selectedDate = new Date(scenarioYear, scenarioMonth - 1, scenarioDay);
-
-    if (selectedDate < today) {
-      setScenarioError(`La fecha no puede ser en el pasado. Selecciona una fecha a partir de hoy.`);
-      return false;
-    }
-
-    return true;
-  };
-
   const saveScenario = () => {
-    // Validar fecha
-    if (!validateScenarioDate()) {
-      return;
-    }
-
     const idx = incomes.filter((i) => i.isScenario).length + 1;
 
     // Determinar el monto según el tipo de escenario
@@ -697,13 +697,14 @@ export default function CashFlowPage() {
       scenarioMonto = scenarioCapitalAmount;
     }
 
-    // Formatear fecha como DD/MM/YYYY
-    const dateStr = `${String(scenarioDay).padStart(2, '0')}/${String(scenarioMonth).padStart(2, '0')}/${scenarioYear}`;
+    // Construir fecha "01/MM/YYYY" desde el periodo seleccionado
+    const [mm, yyyy] = scenarioPeriod.split('/');
+    const dateStr = `01/${mm}/${yyyy}`;
 
     // Crear nuevo escenario
     const newScenario: IncomeEntry = {
       id: `ING-ESC${Date.now()}`,
-      label: `Escenario ${scenarioType === "inversion" ? "inversión" : "capital"} ${idx} (${dateStr})`,
+      label: `Escenario ${scenarioType === "inversion" ? "inversión" : "capital"} ${idx} (${mm}/${yyyy})`,
       monto: scenarioMonto,
       editable: true,
       isScenario: true,
@@ -712,14 +713,16 @@ export default function CashFlowPage() {
 
     // Agregar a la lista de ingresos
     setIncomes((prev) => [...prev, newScenario]);
+    if (user) logEdit(user, 'Flujo de Caja', `Agregó escenario de ingreso (${mm}/${yyyy}) por ${formatCOP(scenarioMonto)}`);
 
-    // Cerrar modal y limpiar error
+    // Cerrar modal
     setShowScenarioModal(false);
-    setScenarioError(null);
   };
 
   const removeScenario = (id: string) => {
+    const scenario = incomes.find((i) => i.id === id);
     setIncomes((prev) => prev.filter((i) => i.id !== id));
+    if (user && scenario) logEdit(user, 'Flujo de Caja', `Eliminó escenario "${scenario.label}"`);
   };
 
   // Drag handlers
@@ -1346,58 +1349,27 @@ export default function CashFlowPage() {
                 {scenarioType === "inversion" ? (
                   // TAB: INVERSIÓN (Desglose del Crédito)
                   <>
-                    {/* Fecha del Escenario */}
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-bold text-steel-800">Fecha del Ingreso</h3>
-                      <div className="grid grid-cols-3 gap-3">
-                        {/* Día */}
-                        <div className="rounded-lg border border-steel-200 p-3">
-                          <label className="text-xs font-semibold text-steel-600 uppercase block mb-2">Día</label>
-                          <select
-                            value={scenarioDay}
-                            onChange={(e) => setScenarioDay(parseInt(e.target.value))}
-                            className="w-full rounded border border-primary-300 px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-primary-400"
-                          >
-                            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                              <option key={d} value={d}>{String(d).padStart(2, '0')}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Mes */}
-                        <div className="rounded-lg border border-steel-200 p-3">
-                          <label className="text-xs font-semibold text-steel-600 uppercase block mb-2">Mes</label>
-                          <select
-                            value={scenarioMonth}
-                            onChange={(e) => setScenarioMonth(parseInt(e.target.value))}
-                            className="w-full rounded border border-primary-300 px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-primary-400"
-                          >
-                            {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((m, i) => (
-                              <option key={i + 1} value={i + 1}>{String(i + 1).padStart(2, '0')} - {m}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Año */}
-                        <div className="rounded-lg border border-steel-200 p-3">
-                          <label className="text-xs font-semibold text-steel-600 uppercase block mb-2">Año</label>
-                          <select
-                            value={scenarioYear}
-                            onChange={(e) => setScenarioYear(parseInt(e.target.value))}
-                            className="w-full rounded border border-primary-300 px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-primary-400"
-                          >
-                            {[2025, 2026, 2027].map((y) => (
-                              <option key={y} value={y}>{y}</option>
-                            ))}
-                          </select>
-                        </div>
+                    {/* Periodo del Escenario */}
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-bold text-steel-800">Periodo del Ingreso</h3>
+                      <div className="rounded-lg border border-steel-200 p-3">
+                        <label className="text-xs font-semibold text-steel-600 uppercase block mb-2">Mes / Año</label>
+                        <select
+                          value={scenarioPeriod}
+                          onChange={(e) => setScenarioPeriod(e.target.value)}
+                          className="w-full rounded border border-primary-300 px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-primary-400"
+                        >
+                          {[
+                            ['10/2025','Oct 2025'],['11/2025','Nov 2025'],['12/2025','Dic 2025'],
+                            ['01/2026','Ene 2026'],['02/2026','Feb 2026'],['03/2026','Mar 2026'],
+                            ['04/2026','Abr 2026'],['05/2026','May 2026'],['06/2026','Jun 2026'],
+                            ['07/2026','Jul 2026'],['08/2026','Ago 2026'],['09/2026','Sep 2026'],
+                            ['10/2026','Oct 2026'],['11/2026','Nov 2026'],
+                          ].map(([val, label]) => (
+                            <option key={val} value={val}>{label}</option>
+                          ))}
+                        </select>
                       </div>
-                      {scenarioError && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700">
-                          <p className="font-semibold">⚠️ Error en la fecha</p>
-                          <p className="mt-1">{scenarioError}</p>
-                        </div>
-                      )}
                     </div>
 
                     <div className="space-y-4">
@@ -1510,58 +1482,27 @@ export default function CashFlowPage() {
                 ) : (
                   // TAB: CAPITAL (Input Simple)
                   <div className="space-y-6">
-                    {/* Fecha del Escenario */}
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-bold text-steel-800">Fecha del Ingreso</h3>
-                      <div className="grid grid-cols-3 gap-3">
-                        {/* Día */}
-                        <div className="rounded-lg border border-steel-200 p-3">
-                          <label className="text-xs font-semibold text-steel-600 uppercase block mb-2">Día</label>
-                          <select
-                            value={scenarioDay}
-                            onChange={(e) => setScenarioDay(parseInt(e.target.value))}
-                            className="w-full rounded border border-primary-300 px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-primary-400"
-                          >
-                            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                              <option key={d} value={d}>{String(d).padStart(2, '0')}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Mes */}
-                        <div className="rounded-lg border border-steel-200 p-3">
-                          <label className="text-xs font-semibold text-steel-600 uppercase block mb-2">Mes</label>
-                          <select
-                            value={scenarioMonth}
-                            onChange={(e) => setScenarioMonth(parseInt(e.target.value))}
-                            className="w-full rounded border border-primary-300 px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-primary-400"
-                          >
-                            {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((m, i) => (
-                              <option key={i + 1} value={i + 1}>{String(i + 1).padStart(2, '0')} - {m}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Año */}
-                        <div className="rounded-lg border border-steel-200 p-3">
-                          <label className="text-xs font-semibold text-steel-600 uppercase block mb-2">Año</label>
-                          <select
-                            value={scenarioYear}
-                            onChange={(e) => setScenarioYear(parseInt(e.target.value))}
-                            className="w-full rounded border border-primary-300 px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-primary-400"
-                          >
-                            {[2025, 2026, 2027].map((y) => (
-                              <option key={y} value={y}>{y}</option>
-                            ))}
-                          </select>
-                        </div>
+                    {/* Periodo del Escenario */}
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-bold text-steel-800">Periodo del Ingreso</h3>
+                      <div className="rounded-lg border border-steel-200 p-3">
+                        <label className="text-xs font-semibold text-steel-600 uppercase block mb-2">Mes / Año</label>
+                        <select
+                          value={scenarioPeriod}
+                          onChange={(e) => setScenarioPeriod(e.target.value)}
+                          className="w-full rounded border border-primary-300 px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-primary-400"
+                        >
+                          {[
+                            ['10/2025','Oct 2025'],['11/2025','Nov 2025'],['12/2025','Dic 2025'],
+                            ['01/2026','Ene 2026'],['02/2026','Feb 2026'],['03/2026','Mar 2026'],
+                            ['04/2026','Abr 2026'],['05/2026','May 2026'],['06/2026','Jun 2026'],
+                            ['07/2026','Jul 2026'],['08/2026','Ago 2026'],['09/2026','Sep 2026'],
+                            ['10/2026','Oct 2026'],['11/2026','Nov 2026'],
+                          ].map(([val, label]) => (
+                            <option key={val} value={val}>{label}</option>
+                          ))}
+                        </select>
                       </div>
-                      {scenarioError && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700">
-                          <p className="font-semibold">⚠️ Error en la fecha</p>
-                          <p className="mt-1">{scenarioError}</p>
-                        </div>
-                      )}
                     </div>
 
                     {/* Monto de Capital */}

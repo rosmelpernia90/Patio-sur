@@ -99,15 +99,15 @@ export interface RolePermissions {
 export const ROLE_CONFIG: Record<UserRole, RolePermissions> = {
   gerente: {
     label: 'Gerente de Proyecto',
-    modules: ['dashboard', 'business-case', 'budget', 'cronograma', 'cash-flow', 'reports', 'documents'],
+    modules: ['dashboard', 'business-case', 'budget', 'cronograma', 'cash-flow', 'reports', 'documents', 'ai-analyzer'],
   },
   controller: {
     label: 'Controller Financiero',
-    modules: ['dashboard', 'business-case', 'budget', 'cronograma', 'cash-flow', 'reports', 'documents'],
+    modules: ['dashboard', 'business-case', 'budget', 'cronograma', 'cash-flow', 'reports', 'documents', 'ai-analyzer'],
   },
   ingeniero: {
     label: 'Ingeniero',
-    modules: ['dashboard', 'cronograma', 'documents'],
+    modules: ['dashboard', 'cronograma', 'documents', 'ai-analyzer'],
   },
   viewer: {
     label: 'Solo Lectura',

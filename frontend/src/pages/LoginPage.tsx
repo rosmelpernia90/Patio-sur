@@ -53,10 +53,13 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-md mx-4">
         {/* Logo header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm mb-4 border border-white/20">
-            <Building2 className="h-8 w-8 text-white" />
+          <div className="inline-flex items-center justify-center mb-4">
+            <img
+              src="/images/pcmejia-logo.png"
+              alt="PC Mejía Ingeniería"
+              className="h-20 w-auto drop-shadow-lg"
+            />
           </div>
-          <h1 className="text-2xl font-bold text-white">PC Mejia Ingenieria</h1>
           <p className="text-primary-300 text-sm mt-1">Gestion de Proyectos — Obra Electrica</p>
         </div>
 

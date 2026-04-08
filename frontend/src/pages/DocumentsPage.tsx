@@ -2,6 +2,45 @@ import { useParams } from 'react-router-dom';
 import { Upload, FileText, File, Download, Trash2, Search, FolderOpen } from 'lucide-react';
 import { useState } from 'react';
 import clsx from 'clsx';
+import HelpButton from '@/components/common/HelpButton';
+
+const documentsHelp = {
+  pageTitle: 'Ayuda — Documentos del Proyecto',
+  description:
+    'Repositorio centralizado de documentos del proyecto Patio de Operacion Sur. ' +
+    'Permite subir, buscar, filtrar y descargar archivos de todas las disciplinas del proyecto.',
+  sections: [
+    {
+      title: 'Categorías de Documentos',
+      items: [
+        { icon: '📋', label: 'Contractual', description: 'Oferta mercantil, otrosíes, contratos con cliente (Consorcio Express) y proveedores. Documentos legalmente vinculantes.' },
+        { icon: '💰', label: 'Presupuesto', description: 'Casos de negocio, presupuestos detallados y análisis financiero del proyecto.' },
+        { icon: '📐', label: 'Diseños', description: 'Planos eléctricos (MT, BT, redes) y civiles (estructural shelter) en formato DWG y PDF.' },
+        { icon: '⚙️', label: 'Técnico', description: 'Especificaciones técnicas de equipos, cargadores, transformadores y materiales.' },
+        { icon: '🛡️', label: 'Garantías', description: 'Pólizas de cumplimiento (20%), seguros y garantías de los equipos suministrados.' },
+        { icon: '📊', label: 'Informes', description: 'Informes mensuales de avance y reportes ejecutivos para gerencia y cliente.' },
+        { icon: '🏛️', label: 'Trámites', description: 'Solicitudes ante entidades: Codensa (factibilidades), IDU (espacio público), Alcaldía.' },
+        { icon: '📅', label: 'Planificación', description: 'Cronogramas generales, planes de trabajo y programaciones de actividades.' },
+      ],
+    },
+    {
+      title: 'Estados de Documentos',
+      items: [
+        { color: '#16A34A', label: 'Aprobado', description: 'Documento revisado y aprobado por la dirección del proyecto. Versión vigente.' },
+        { color: '#D97706', label: 'Pendiente', description: 'En proceso de revisión o aprobación interna.' },
+        { color: '#3B82F6', label: 'En revisión', description: 'Siendo revisado actualmente por el equipo técnico o el cliente.' },
+      ],
+    },
+    {
+      title: 'Acciones',
+      items: [
+        { icon: '⬆️', label: 'Subir documento', description: 'Arrastra archivos al área indicada o usa el botón "Subir Documento". Formatos soportados: PDF, XLSX, DWG, JPG, PNG.' },
+        { icon: '🔍', label: 'Buscar y filtrar', description: 'Usa el buscador por nombre o el selector de categoría para encontrar documentos rápidamente.' },
+        { icon: '⬇️', label: 'Descargar', description: 'Botón de descarga disponible en cada fila. Los diseños DWG requieren AutoCAD o visor compatible.' },
+      ],
+    },
+  ],
+};
 
 interface DocumentItem {
   id: string;
@@ -55,10 +94,13 @@ export default function DocumentsPage() {
             Gestion documental — Patio de Operacion Sur
           </p>
         </div>
-        <button className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 shadow-sm transition">
-          <Upload className="h-4 w-4" />
-          Subir Documento
-        </button>
+        <div className="flex items-center gap-2">
+          <HelpButton {...documentsHelp} />
+          <button className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 shadow-sm transition">
+            <Upload className="h-4 w-4" />
+            Subir Documento
+          </button>
+        </div>
       </div>
 
       {/* Upload area */}

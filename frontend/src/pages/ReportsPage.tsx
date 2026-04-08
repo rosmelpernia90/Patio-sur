@@ -1,4 +1,37 @@
 import { Download, Printer, CheckCircle2, Loader2, FileText, FileSpreadsheet } from 'lucide-react';
+import HelpButton from '@/components/common/HelpButton';
+
+const reportsHelp = {
+  pageTitle: 'Ayuda — Reportes e Informes',
+  description:
+    'Genera reportes gerenciales exportables con datos dinámicos del proyecto Patio de Operacion Sur. ' +
+    'Los reportes incluyen indicadores EVM, avance físico, costos y flujo de caja en formato profesional.',
+  sections: [
+    {
+      title: 'Reportes Disponibles',
+      items: [
+        { icon: '📊', label: 'Estado General del Proyecto', description: 'Reporte ejecutivo completo: EVM (BAC, EV, AC, CPI, SPI), Curva S, alertas activas, resumen presupuestario y flujo de caja.' },
+        { icon: '💵', label: 'Flujo de Caja Mensual', description: 'Ingresos vs egresos proyectados y reales por mes. Incluye análisis de liquidez, crédito puente e impacto de escenarios.' },
+        { icon: '📉', label: 'Cuadro de Variación Presupuestaria', description: 'Comparativo caso de negocio vs costo real por capítulo. Muestra desviaciones y estado de negociación.' },
+        { icon: '🎯', label: 'Reporte EAC — Costo a Terminación', description: 'Proyección del costo final del proyecto con análisis de margen, CPI, VAC y utilidad proyectada.' },
+      ],
+    },
+    {
+      title: 'Formatos de Exportación',
+      items: [
+        { color: '#DC2626', label: 'PDF', description: 'Documento profesional con logo de PC Mejía, tablas formateadas y análisis narrativo. Listo para presentar a gerencia o cliente.' },
+        { color: '#16A34A', label: 'Excel', description: 'Datos tabulares exportables para análisis adicional, integración con otros sistemas o auditoría.' },
+      ],
+    },
+    {
+      title: 'Fuentes de Datos',
+      items: [
+        { icon: '🔄', label: 'Datos dinámicos', description: 'Los reportes incluyen las semanas personalizadas del Cronograma (S-41 en adelante) y los escenarios de ingreso del Flujo de Caja.' },
+        { icon: '📅', label: 'Corte de información', description: 'Los KPIs de EVM se calculan con la última semana de corte registrada en el Cronograma.' },
+      ],
+    },
+  ],
+};
 import { useState, useCallback } from 'react';
 import clsx from 'clsx';
 import {
@@ -103,9 +136,12 @@ export default function ReportsPage() {
             Genera reportes gerenciales exportables en PDF y Excel con formato profesional
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-steel-400 bg-steel-50 px-3 py-1.5 rounded-full border border-steel-200">
-          <FileText className="h-3.5 w-3.5" />
-          <span>{reports.length} reportes disponibles</span>
+        <div className="flex items-center gap-3">
+          <HelpButton {...reportsHelp} />
+          <div className="flex items-center gap-2 text-xs text-steel-400 bg-steel-50 px-3 py-1.5 rounded-full border border-steel-200">
+            <FileText className="h-3.5 w-3.5" />
+            <span>{reports.length} reportes disponibles</span>
+          </div>
         </div>
       </div>
 

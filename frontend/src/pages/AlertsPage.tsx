@@ -16,6 +16,43 @@ import clsx from 'clsx';
 import { formatCOP } from '@/utils/formatNumbers';
 import cronogramaBase from '@/data/cronogramaData';
 import type { Activity } from '@/data/cronogramaData';
+import HelpButton from '@/components/common/HelpButton';
+
+const alertsHelp = {
+  pageTitle: 'Ayuda — Alertas del Proyecto',
+  description:
+    'Sistema de alertas dinámicas y fijas para el proyecto Patio de Operacion Sur. ' +
+    'Las alertas dinámicas se calculan automáticamente desde los indicadores EVM (SPI, CPI). ' +
+    'Las alertas fijas documentan riesgos identificados por el equipo.',
+  sections: [
+    {
+      title: 'Niveles de Severidad',
+      items: [
+        { color: '#DC2626', label: 'Crítica (rojo)', description: 'Requiere acción inmediata. Impacto alto en costo, plazo o entregables del proyecto.' },
+        { color: '#D97706', label: 'Advertencia (amarillo)', description: 'Riesgo identificado que debe monitorearse. Puede escalar si no se atiende oportunamente.' },
+        { color: '#3B82F6', label: 'Informativa (azul)', description: 'Datos de contexto relevantes para la gestión. No requieren acción inmediata.' },
+      ],
+    },
+    {
+      title: 'Alertas Dinámicas — Calculadas Automáticamente',
+      items: [
+        { icon: '📅', label: 'SPI — Índice de Cronograma', description: 'Se calcula desde la última semana del Cronograma. SPI < 0.90 = crítico. SPI 0.90-0.95 = advertencia. SPI ≥ 0.95 = en tiempo.' },
+        { icon: '💰', label: 'CPI — Índice de Costo', description: 'EV / AC calculado con el Valor Ganado del Cronograma. CPI < 0.85 = sobrecosto crítico. CPI 0.85-0.95 = advertencia.' },
+        { icon: '📊', label: 'Ejecución Presupuestal', description: 'Porcentaje del EAC que ya ha sido ejecutado (AC/EAC). Alerta cuando supera el 85%.' },
+      ],
+    },
+    {
+      title: 'Alertas Fijas del Proyecto',
+      items: [
+        { color: '#DC2626', label: 'Re-baseline: +48 días', description: 'Cronograma extendido de 405 a 453 días. Fin original: 30 Jul 2026. Fin revisado: 16 Sep 2026. SPI contractual = 0.73.' },
+        { color: '#DC2626', label: 'Causa raíz: problemas financieros', description: 'Retrasos por falta de liquidez de PC Mejía documentados en reporte 7 mar. Solo $7,511M cobrados de $16,745M facturados (45%).' },
+        { color: '#DC2626', label: 'Compensación Reactiva: margen -37.4%', description: 'Costo estimado ($751.9M) supera la venta ($547.2M). Pérdida confirmada de $204.7M en este capítulo.' },
+        { color: '#D97706', label: 'Crédito puente $17,000M al 13.66%', description: 'Desembolso 6 Feb 2026. Pago bullet Feb 2027. Intereses totales ~$3,711M. Desfase de cobro de 9 meses.' },
+        { color: '#D97706', label: '40% del presupuesto pendiente de negociar', description: '$11,132M de $28,082M sin adjudicar. Pendientes críticos: Cables BT/DC, SPE/SPT, Compensación Reactiva.' },
+      ],
+    },
+  ],
+};
 
 // ── Shared utilities (same as DashboardPage) ──
 interface CustomWeekData { weekNum: number; label: string; dateLabel: string; values: Record<string, number> }
@@ -324,6 +361,7 @@ export default function AlertsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <HelpButton {...alertsHelp} />
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 border border-red-200">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />

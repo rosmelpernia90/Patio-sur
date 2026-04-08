@@ -11,8 +11,6 @@ const businessCaseHelp = {
     'Esta pagina presenta el analisis financiero detallado del proyecto basado en el archivo ' +
     '"Detallado caso de negocio_220126.xlsx". Muestra la estructura de costos vs venta, ' +
     'el estado de la gestion de compra y los indicadores de rentabilidad por capitulo.',
-  pdfUrl: '/docs/Informe_CasoDeNegocio_Metricas.pdf',
-  pdfName: 'Informe_CasoDeNegocio_Metricas.pdf',
   sections: [
     {
       title: 'KPIs Macro Financieros',

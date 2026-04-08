@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useParams, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   FolderTree,
@@ -14,11 +14,14 @@ import {
   Briefcase,
   LogOut,
   CalendarClock,
+  Bot,
   type LucideIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { useAuthStore, hasAccess, ROLE_CONFIG } from '../../stores/authStore';
+import { updatePresence, clearPresence } from '../../utils/activityTracker';
+import ActivityPanel from '../common/ActivityPanel';
 
 interface NavItem {
   to: string;
@@ -34,16 +37,26 @@ const projectNavItems: NavItem[] = [
   { to: 'cash-flow', label: 'Flujo de Caja', icon: TrendingUp, module: 'cash-flow' },
   { to: 'reports', label: 'Reportes', icon: BarChart3, module: 'reports' },
   { to: 'documents', label: 'Documentos', icon: Files, module: 'documents' },
+  { to: 'ai-analyzer', label: 'Analizador IA', icon: Bot, module: 'ai-analyzer' },
 ];
 
 export default function MainLayout() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+
+  // ── Presence tracking: update every 30 s and on route change ──
+  useEffect(() => {
+    if (!user) return;
+    updatePresence(user, location.pathname);
+    const t = setInterval(() => updatePresence(user, location.pathname), 30_000);
+    return () => clearInterval(t);
+  }, [user, location.pathname]);
 
   const userRole = user?.role ?? 'viewer';
   const roleConfig = ROLE_CONFIG[userRole];
@@ -52,6 +65,7 @@ export default function MainLayout() {
   const visibleNavItems = projectNavItems.filter((item) => hasAccess(userRole, item.module));
 
   const handleLogout = () => {
+    if (user) clearPresence(user.id);
     logout();
     navigate('/login', { replace: true });
   };
@@ -195,6 +209,7 @@ export default function MainLayout() {
             </h1>
           </div>
           <div className="flex items-center gap-3">
+            <ActivityPanel />
             <span className="text-xs font-medium text-steel-400 bg-steel-50 px-3 py-1.5 rounded-full border border-steel-200">
               {roleConfig?.label}
             </span>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Calendar, ChevronDown, ChevronRight, Clock, TrendingUp, AlertTriangle, CheckCircle2, Plus, Trash2, Save } from 'lucide-react';
 import clsx from 'clsx';
 import HelpButton from '@/components/common/HelpButton';
@@ -8,6 +8,8 @@ import {
 } from 'recharts';
 import cronogramaBase from '@/data/cronogramaData';
 import type { Activity } from '@/data/cronogramaData';
+import { useAuthStore } from '@/stores/authStore';
+import { logEdit } from '@/utils/activityTracker';
 
 // ============================================================
 // S-Curve data — datos base del proyecto
@@ -132,7 +134,11 @@ function loadCustomWeeks(): CustomWeekData[] {
 }
 
 function saveCustomWeeks(data: CustomWeekData[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(data));
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error('[Cronograma] Error al guardar en localStorage:', e);
+  }
 }
 
 /** Extract all leaf avanceReal values from the WBS tree */
@@ -195,37 +201,45 @@ function interpolateProgrammed(weekNum: number): number {
 const cronogramaHelp = {
   pageTitle: 'Ayuda — Cronograma',
   description:
-    'El Cronograma presenta la estructura de actividades del proyecto con sus pesos ponderados, ' +
-    'fechas de inicio y fin, y el avance programado vs real. La Curva S muestra la progresion ' +
-    'acumulada del proyecto semana a semana. Fuente: "Curva S (19 mar) Pablo.xlsx".',
+    'Cronograma WBS del proyecto Patio de Operacion Sur con 515 actividades ponderadas. ' +
+    'Muestra avance programado vs real por semana. La semana activa determina los KPIs del Dashboard (SPI, EV, CPI). ' +
+    'Fuente base: "Curva S (19 mar) Pablo.xlsx". Semanas S-41 en adelante se ingresan manualmente.',
   pdfUrl: '/docs/Informe_Dashboard_Metricas.pdf',
   pdfName: 'Informe_Dashboard_Metricas.pdf',
   sections: [
     {
-      title: 'Curva S',
+      title: 'Semanas de Corte',
       items: [
-        { color: '#1B5EAB', label: 'Linea Azul — Avance Planeado', description: 'Progreso acumulado segun cronograma y pesos ponderados de cada actividad.' },
-        { color: '#16A34A', label: 'Linea Verde — Avance Real', description: 'Progreso real acumulado al corte de cada semana.' },
-        { color: '#DC2626', label: 'Linea Roja — Fecha Contractual', description: 'Fecha de entrega contractual: 3 Julio 2026.' },
+        { color: '#1B5EAB', label: 'Semanas base (azul) — S-00 a S-40', description: 'Datos historicos cargados desde Excel. Avance real hasta S-40 (25 Mar 2026, 52.2%). No editables.' },
+        { color: '#16A34A', label: 'Semanas personalizadas (verde) — S-41 en adelante', description: 'Semanas ingresadas manualmente por el equipo. Click en "+ S-XX" para agregar la siguiente semana de corte.' },
+        { icon: '✏️', label: 'Como agregar una semana nueva', description: '1) Click en "+ S-XX" para crear la semana. 2) Seleccionar la semana verde creada. 3) Expandir los capitulos en la tabla. 4) Editar el % de avance real de cada actividad hoja. 5) Presionar Enter o hacer click fuera del campo para guardar. Se guarda automaticamente en el navegador.' },
       ],
     },
     {
-      title: 'Tabla de Cronograma',
+      title: 'Curva S — Avance Acumulado',
       items: [
-        { icon: '🔢', label: 'Codigo WBS', description: 'Identificador jerarquico de la actividad en la Estructura de Desglose de Trabajo.' },
-        { icon: '⚖️', label: 'Peso (%)', description: 'Incidencia de la actividad sobre el total del proyecto.' },
-        { icon: '📅', label: 'Fechas (Inicio - Fin)', description: 'Fechas de inicio y fin segun el cronograma vigente.' },
-        { color: '#1B5EAB', label: 'Barra Programado (azul)', description: 'Porcentaje de avance que deberia tener la actividad a la fecha actual.' },
-        { color: '#16A34A', label: 'Barra Ejecutado (verde)', description: 'Porcentaje de avance real de la actividad al ultimo corte.' },
-        { color: '#DC2626', label: 'Estado Critico (rojo)', description: 'Actividades con desviacion > 10% entre programado y ejecutado.' },
+        { color: '#1B5EAB', label: 'Linea Azul — Avance Planificado', description: 'Progreso acumulado segun cronograma base revisado (19 mar). 67 semanas (S-00 a S-66). Termina en 100% en S-65 (16 Sep 2026).' },
+        { color: '#16A34A', label: 'Linea Verde — Avance Real', description: 'Progreso real acumulado al corte de cada semana. Se actualiza con las semanas personalizadas ingresadas.' },
+        { color: '#DC2626', label: 'Linea Roja — Fecha Contractual', description: 'Fecha de entrega contractual original: 3 Julio 2026. El re-baseline extendio el plazo 48 dias adicionales.' },
+        { color: '#7C3AED', label: 'Linea Morada — Semana seleccionada', description: 'Marca la semana de corte actualmente seleccionada en el selector de semanas.' },
       ],
     },
     {
-      title: 'Interpretacion Gerencial',
+      title: 'Tabla WBS — Actividades',
       items: [
-        { icon: '📊', label: 'SPI del cronograma', description: 'SPI > 1.0 indica que el proyecto va en tiempo global.' },
-        { icon: '⚠️', label: 'Ruta critica: Ejecucion (50%)', description: 'La fase de Ejecucion es la mas critica. Retrasos aqui impactan la fecha de entrega.' },
-        { icon: '💰', label: 'Impacto financiero', description: 'Cada semana de atraso en Ejecucion genera ~$195M en costos adicionales.' },
+        { icon: '🔢', label: 'Codigo WBS', description: 'Identificador jerarquico de la actividad. Ej: 4.2.1.3 = Capitulo 4, Subcapitulo 2, Grupo 1, Item 3.' },
+        { icon: '⚖️', label: 'Peso (%)', description: 'Ponderacion de la actividad sobre el total del proyecto. La suma de todos los pesos = 100%.' },
+        { color: '#1B5EAB', label: 'Barra Programado (azul claro)', description: 'Avance que deberia tener la actividad segun el cronograma base en la semana seleccionada.' },
+        { color: '#16A34A', label: 'Barra Ejecutado (verde)', description: 'Avance real de la actividad. Verde = en tiempo o adelantado. Rojo = con atraso > 10pp.' },
+        { color: '#DC2626', label: 'Estado Critico', description: 'Actividades con desviacion > 10pp entre programado y real. El row se resalta en rojo claro.' },
+      ],
+    },
+    {
+      title: 'KPIs e Interpretacion',
+      items: [
+        { icon: '📊', label: 'SPI = Real / Planificado', description: 'SPI > 1.0 = adelantado. SPI = 1.0 = en tiempo. SPI < 1.0 = atrasado. Este valor alimenta el Dashboard y las Alertas del proyecto.' },
+        { icon: '⚠️', label: 'Ruta critica: Ejecucion (50% del peso)', description: 'La fase de Ejecucion es la mas critica. Retrasos aqui impactan directamente la fecha de entrega contractual.' },
+        { icon: '💰', label: 'Impacto financiero del atraso', description: 'Cada semana de atraso en la fase de Ejecucion genera ~$195M en costos adicionales (nomina, alquiler, indirectos).' },
       ],
     },
   ],
@@ -266,11 +280,25 @@ function ActivityRow({
   onChangeReal?: (code: string, value: number) => void;
 }) {
   const [open, setOpen] = useState(level === 0);
+  // Estado local del input — evita re-renders por cada tecla y permite escribir multi-dígito
+  const [localVal, setLocalVal] = useState<string>(String(act.avanceReal));
   const hasChildren = act.children && act.children.length > 0;
   const isLeaf = !hasChildren;
   const fmtDate = (d: string) => { const [, m, day] = d.split('-'); return `${day}/${m}`; };
   const diff = act.avanceReal - act.avanceProg;
   const isLevel0 = level === 0;
+
+  // Sincronizar localVal cuando el valor externo cambia (ej: recalculo de otro campo)
+  useEffect(() => {
+    setLocalVal(String(act.avanceReal));
+  }, [act.avanceReal]);
+
+  // Confirmar y guardar al salir del campo (onBlur)
+  const handleBlur = () => {
+    const v = Math.min(100, Math.max(0, parseFloat(localVal) || 0));
+    setLocalVal(String(v));
+    onChangeReal?.(act.code, v);
+  };
 
   return (
     <>
@@ -321,11 +349,10 @@ function ActivityRow({
                 min={0}
                 max={100}
                 step={1}
-                value={act.avanceReal}
-                onChange={(e) => {
-                  const v = Math.min(100, Math.max(0, parseFloat(e.target.value) || 0));
-                  onChangeReal?.(act.code, v);
-                }}
+                value={localVal}
+                onChange={(e) => setLocalVal(e.target.value)}
+                onBlur={handleBlur}
+                onKeyDown={(e) => { if (e.key === 'Enter') { (e.target as HTMLInputElement).blur(); } }}
                 className="w-14 px-1 py-0.5 text-[10px] font-bold text-right border border-primary-300 rounded bg-primary-50 text-primary-700 focus:outline-none focus:ring-1 focus:ring-primary-400"
               />
             </div>
@@ -362,9 +389,14 @@ const SCurveTooltip = ({ active, payload }: any) => {
 // MAIN COMPONENT
 // ============================================================
 export default function CronogramaPage() {
+  const user = useAuthStore((s) => s.user);
   const [selectedWeek, setSelectedWeek] = useState<string>('S-40');
   const [customWeeks, setCustomWeeks] = useState<CustomWeekData[]>(loadCustomWeeks);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  // Ref para acceder al valor más reciente en el cleanup de desmontaje
+  const customWeeksRef = useRef(customWeeks);
+  useEffect(() => { customWeeksRef.current = customWeeks; });
 
   // ---- Persist custom weeks (primary: in updater, backup: useEffect) ----
   const updateCustomWeeks = useCallback((updater: (prev: CustomWeekData[]) => CustomWeekData[]) => {
@@ -382,6 +414,15 @@ export default function CronogramaPage() {
       saveCustomWeeks(customWeeks);
     }
   }, [customWeeks]);
+
+  // Guardar al desmontar (cuando el usuario navega a otra página)
+  useEffect(() => {
+    return () => {
+      if (customWeeksRef.current.length > 0) {
+        saveCustomWeeks(customWeeksRef.current);
+      }
+    };
+  }, []);
 
   // ---- Determine which week is "custom" ----
   const isCustomWeek = useMemo(
@@ -501,13 +542,15 @@ export default function CronogramaPage() {
 
     updateCustomWeeks(prev => [...prev, newWeek]);
     setSelectedWeek(newWeek.label);
-  }, [customWeeks, updateCustomWeeks]);
+    if (user) logEdit(user, 'Cronograma', `Agregó semana de corte ${newWeek.label} (${newWeek.dateLabel})`);
+  }, [customWeeks, updateCustomWeeks, user]);
 
   // ---- Delete custom week handler ----
   const handleDeleteWeek = useCallback((label: string) => {
     updateCustomWeeks(prev => prev.filter(cw => cw.label !== label));
     setSelectedWeek('S-40');
-  }, [updateCustomWeeks]);
+    if (user) logEdit(user, 'Cronograma', `Eliminó semana de corte ${label}`);
+  }, [updateCustomWeeks, user]);
 
   // ---- Update leaf avanceReal in custom week ----
   const handleChangeReal = useCallback((code: string, value: number) => {

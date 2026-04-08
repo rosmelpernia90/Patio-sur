@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { HelpCircle, X, FileText, Download, ChevronRight } from 'lucide-react';
+import { HelpCircle, X, ChevronRight } from 'lucide-react';
 
 export interface LegendItem {
   color?: string;
@@ -17,13 +17,10 @@ interface HelpButtonProps {
   pageTitle: string;
   description: string;
   sections: LegendSection[];
-  pdfUrl?: string;
-  pdfName?: string;
 }
 
-export default function HelpButton({ pageTitle, description, sections, pdfUrl, pdfName }: HelpButtonProps) {
+export default function HelpButton({ pageTitle, description, sections }: HelpButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'legend' | 'report'>('legend');
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click
@@ -93,142 +90,47 @@ export default function HelpButton({ pageTitle, description, sections, pdfUrl, p
             </button>
           </div>
 
-          {/* Tab Selector */}
-          <div className="flex border-b border-steel-200 bg-steel-50">
-            <button
-              onClick={() => setActiveTab('legend')}
-              className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition ${
-                activeTab === 'legend'
-                  ? 'text-primary-700 border-b-2 border-primary-600 bg-white'
-                  : 'text-steel-400 hover:text-steel-600'
-              }`}
-            >
-              Leyenda
-            </button>
-            {pdfUrl && (
-              <button
-                onClick={() => setActiveTab('report')}
-                className={`flex-1 py-3 text-xs font-semibold uppercase tracking-wider transition ${
-                  activeTab === 'report'
-                    ? 'text-primary-700 border-b-2 border-primary-600 bg-white'
-                    : 'text-steel-400 hover:text-steel-600'
-                }`}
-              >
-                Informe PDF
-              </button>
-            )}
-          </div>
-
           {/* Content */}
           <div className="flex-1 overflow-y-auto scrollbar-pcm">
-            {activeTab === 'legend' ? (
-              <div className="p-5 space-y-5">
-                {/* Description */}
-                <div className="rounded-xl bg-primary-50 border border-primary-100 p-4">
-                  <p className="text-xs text-primary-800 leading-relaxed">{description}</p>
-                </div>
+            <div className="p-5 space-y-5">
+              {/* Description */}
+              <div className="rounded-xl bg-primary-50 border border-primary-100 p-4">
+                <p className="text-xs text-primary-800 leading-relaxed">{description}</p>
+              </div>
 
-                {/* Legend Sections */}
-                {sections.map((section, sIdx) => (
-                  <div key={sIdx}>
-                    <h4 className="text-xs font-bold text-steel-900 uppercase tracking-wider mb-3 flex items-center gap-2">
-                      <div className="h-1 w-5 bg-primary-400 rounded-full" />
-                      {section.title}
-                    </h4>
-                    <div className="space-y-2">
-                      {section.items.map((item, iIdx) => (
-                        <div
-                          key={iIdx}
-                          className="flex items-start gap-3 p-3 rounded-lg bg-steel-50 hover:bg-steel-100/80 transition group"
-                        >
-                          {item.color && (
-                            <div
-                              className="w-4 h-4 rounded-md flex-shrink-0 mt-0.5 border border-black/5 shadow-sm"
-                              style={{ backgroundColor: item.color }}
-                            />
-                          )}
-                          {item.icon && !item.color && (
-                            <span className="text-sm flex-shrink-0 mt-0.5">{item.icon}</span>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-steel-800">{item.label}</p>
-                            <p className="text-[11px] text-steel-500 leading-relaxed mt-0.5">{item.description}</p>
-                          </div>
-                          <ChevronRight className="h-3 w-3 text-steel-300 flex-shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition" />
+              {/* Legend Sections */}
+              {sections.map((section, sIdx) => (
+                <div key={sIdx}>
+                  <h4 className="text-xs font-bold text-steel-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <div className="h-1 w-5 bg-primary-400 rounded-full" />
+                    {section.title}
+                  </h4>
+                  <div className="space-y-2">
+                    {section.items.map((item, iIdx) => (
+                      <div
+                        key={iIdx}
+                        className="flex items-start gap-3 p-3 rounded-lg bg-steel-50 hover:bg-steel-100/80 transition group"
+                      >
+                        {item.color && (
+                          <div
+                            className="w-4 h-4 rounded-md flex-shrink-0 mt-0.5 border border-black/5 shadow-sm"
+                            style={{ backgroundColor: item.color }}
+                          />
+                        )}
+                        {item.icon && !item.color && (
+                          <span className="text-sm flex-shrink-0 mt-0.5">{item.icon}</span>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-steel-800">{item.label}</p>
+                          <p className="text-[11px] text-steel-500 leading-relaxed mt-0.5">{item.description}</p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-5 space-y-4">
-                {/* PDF Preview info */}
-                <div className="rounded-xl border border-steel-200 bg-white overflow-hidden shadow-sm">
-                  <div className="bg-gradient-to-r from-red-500 to-red-600 px-5 py-3 flex items-center gap-3">
-                    <FileText className="h-6 w-6 text-white" />
-                    <div>
-                      <p className="text-white font-bold text-sm">{pdfName || 'Informe de Metricas'}</p>
-                      <p className="text-red-100 text-[10px]">Documento PDF</p>
-                    </div>
-                  </div>
-                  <div className="p-5 space-y-4">
-                    <p className="text-xs text-steel-600 leading-relaxed">
-                      Este informe contiene la explicacion detallada de cada metrica e indicador
-                      visualizado en esta pagina, incluyendo:
-                    </p>
-                    <ul className="space-y-2">
-                      {[
-                        'Significado de cada metrica y su formula',
-                        'Fuente de datos de donde se obtuvo la informacion',
-                        'Interpretacion en el contexto del proyecto',
-                        'Tablas detalladas con valores y referencias',
-                      ].map((item, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-steel-700">
-                          <div className="w-1.5 h-1.5 rounded-full bg-primary-400 flex-shrink-0 mt-1.5" />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-
-                    {/* Download button */}
-                    <a
-                      href={pdfUrl}
-                      download={pdfName || 'Informe.pdf'}
-                      className="flex items-center justify-center gap-2 w-full rounded-lg bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-700 transition shadow-sm"
-                    >
-                      <Download className="h-4 w-4" />
-                      Descargar Informe PDF
-                    </a>
-
-                    {/* Open in new tab */}
-                    <a
-                      href={pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full rounded-lg border border-steel-300 bg-white px-4 py-2.5 text-sm font-medium text-steel-600 hover:bg-steel-50 transition"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Ver en nueva pestana
-                    </a>
+                        <ChevronRight className="h-3 w-3 text-steel-300 flex-shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition" />
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                {/* Embedded PDF preview */}
-                {pdfUrl && (
-                  <div className="rounded-xl border border-steel-200 overflow-hidden shadow-sm">
-                    <div className="bg-steel-100 px-4 py-2 border-b border-steel-200">
-                      <p className="text-[10px] font-semibold text-steel-500 uppercase tracking-wider">Vista previa</p>
-                    </div>
-                    <iframe
-                      src={pdfUrl}
-                      className="w-full h-[400px] bg-steel-50"
-                      title="Vista previa del informe"
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+              ))}
+            </div>
           </div>
 
           {/* Panel Footer */}

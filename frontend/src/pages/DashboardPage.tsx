@@ -23,62 +23,61 @@ import { formatCOP, formatPercent, formatRatio } from '@/utils/formatNumbers';
 const dashboardHelp = {
   pageTitle: 'Ayuda — Dashboard',
   description:
-    'El Dashboard presenta una vista ejecutiva del estado del proyecto Patio de Operacion Sur. ' +
-    'Incluye indicadores financieros (EVM), avance fisico vs planificado (Curva S), resumen presupuestario, ' +
-    'alertas de riesgo, flujo de caja y datos contractuales.',
+    'Vista ejecutiva del estado del proyecto Patio de Operacion Sur (OE 1035). ' +
+    'Incluye indicadores financieros EVM, avance físico vs planificado (Curva S), resumen presupuestario, ' +
+    'alertas de riesgo, flujo de caja y datos contractuales. Todos los KPIs se actualizan dinámicamente desde el Cronograma.',
   pdfUrl: '/docs/Informe_Dashboard_Metricas.pdf',
   pdfName: 'Informe_Dashboard_Metricas.pdf',
   sections: [
     {
-      title: 'Tarjetas KPI — Fila 1',
+      title: 'KPIs Principales (Fila 1)',
       items: [
-        { color: '#1B5EAB', label: 'Valor Total Oferta (BAC) = $41,012M', description: 'Precio global fijo de la oferta mercantil. Fuente: Detallado caso de negocio_220126.xlsx, hoja "Costo vs Venta".' },
-        { color: '#4A4D56', label: 'Costo Real (ACWP) = $8,530M', description: 'Materiales $7,552M + Admin $500M. Fuente: Patio Sur_.xlsx. 20.8% del BAC ejecutado.' },
-        { color: '#16A34A', label: 'CPI = 2.51', description: 'EV/AC. Alto porque EV se calcula sobre precio de venta ($41B) y AC es costo real ($8.5B). Refleja margen contractual + ahorro compras $3,790M.' },
-        { color: '#D97706', label: 'SPI = 1.01 / 0.73', description: 'Dos valores: 1.01 vs linea base revisada (19 mar, en tiempo) y 0.73 vs linea base contractual (27 nov, 27% atrasado). Re-baseline de +48 dias.' },
+        { color: '#1B5EAB', label: 'Valor Total Oferta (BAC) = $41,012,884,481', description: 'Precio global fijo de la Oferta Mercantil. Valor contractual inamovible. Fuente: Detallado caso de negocio_220126.xlsx, hoja "Costo vs Venta".' },
+        { color: '#4A4D56', label: 'Costo Real (ACWP) = $8,741M', description: 'Materiales + Administración ejecutados. Fuente: Patio Sur_.xlsx. Representa ~21.3% del BAC. Click para ver desglose.' },
+        { color: '#16A34A', label: 'CPI (Índice de Costo) — dinámico', description: 'EV/AC calculado con la última semana del Cronograma. CPI > 1 = bajo presupuesto. Alto por margen contractual (28%) + ahorro en compras ($3,790M).' },
+        { color: '#D97706', label: 'SPI (Índice de Cronograma) — dinámico', description: 'Calculado automáticamente desde la última semana del Cronograma. SPI vs base revisada (19 mar): ~1.01. SPI vs base contractual (27 nov): 0.73. Re-baseline de +48 días.' },
       ],
     },
     {
-      title: 'Tarjetas KPI — Fila 2',
+      title: 'KPIs Secundarios (Fila 2)',
       items: [
-        { color: '#1B5EAB', label: 'Valor Ganado (BCWP) = $21,416M', description: 'BAC x 52.22% avance fisico. Fuente: Curva S (19 mar).xlsx, semana S-40 (25 Mar 2026). 516 actividades ponderadas.' },
-        { color: '#16A34A', label: 'EAC = $25,157M', description: 'Proyeccion bottom-up del equipo financiero. VAC = $15,855M (utilidad proyectada 38.7%). Fuente: pagos Proyeccion de Pagos.xlsx.' },
-        { color: '#DC2626', label: 'Alertas Activas: 6', description: '3 criticas (re-baseline, problemas financieros, comp. reactiva) + 2 advertencias (credito, pendiente negociar) + 1 informativa (Curva S).' },
+        { color: '#1B5EAB', label: 'Valor Ganado (EV/BCWP) — dinámico', description: 'BAC × % avance físico de la última semana del Cronograma. Se actualiza automáticamente al ingresar nuevas semanas.' },
+        { color: '#16A34A', label: 'EAC — Estimado a la Conclusión', description: 'Proyección bottom-up del equipo financiero ($25,157M con financiación). VAC = $15,855M. Utilidad proyectada: 38.7%. Fuente: Proyeccion de Pagos.xlsx.' },
+        { color: '#DC2626', label: 'Alertas Activas — dinámico', description: 'Número total de alertas activas. Incluye alertas dinámicas (SPI, CPI calculados) + alertas fijas del proyecto. Ver página Alertas para detalle.' },
       ],
     },
     {
-      title: 'Curva S — Fuente: Curva S (19 mar).xlsx',
+      title: 'Curva S — Avance Acumulado',
       items: [
-        { color: '#1B5EAB', label: 'Linea Azul — Planificado (Base Revisada)', description: '67 semanas (S-00 a S-66). Semana S-40: 51.9%. Duracion: 453 dias (20 Jun 2025 - 16 Sep 2026). 516 actividades.' },
-        { color: '#16A34A', label: 'Linea Verde — Avance Real', description: 'Semana S-40 (25 Mar): 52.2%. Desviacion: +0.3%. En tiempo vs base revisada. SPI = 1.006.' },
-        { color: '#DC2626', label: 'Nota: Base Original (27 Nov)', description: 'El cronograma original tenia 405 dias (fin 30 Jul 2026). SPI contractual = 0.73. Se extendio 48 dias adicionales.' },
+        { color: '#1B5EAB', label: 'Línea Azul — Planificado (Base Revisada 19 mar)', description: '67 semanas (S-00 a S-66). Duración: 453 días (20 Jun 2025 – 16 Sep 2026). 515 actividades ponderadas. Fuente: Curva S (19 mar) Pablo.xlsx.' },
+        { color: '#16A34A', label: 'Línea Verde — Avance Real (dinámico)', description: 'Se actualiza con cada semana registrada en el Cronograma. La desviación muestra si el proyecto va adelantado (+) o atrasado (-).' },
+        { color: '#DC2626', label: 'Línea Roja — Fecha Contractual (3 Jul 2026)', description: 'Fecha de entrega original del contrato. El proyecto ya tiene re-baseline a 16 Sep 2026 (+48 días). SPI contractual = 0.73.' },
       ],
     },
     {
       title: 'Resumen Presupuestario',
       items: [
-        { color: '#a9c8eb', label: 'Original / Vigente = $41,012M', description: 'BAC sin modificaciones. Fuente: Oferta Mercantil.' },
-        { color: '#1b5eab', label: 'Comprometido = $13,159M (54.2%)', description: 'Contratos y OC adjudicados. Fuente: caso de negocio, hoja "Ejecucion vs Caso de Negocio".' },
-        { color: '#dc2626', label: 'Ejecutado = $8,053M', description: 'Costos reales: materiales + admin. Fuente: Patio Sur_.xlsx.' },
-        { color: '#16a34a', label: 'Disponible = $27,853M', description: 'Vigente - Comprometido. Nota: $11,132M pendientes de negociar (40% del costo directo).' },
+        { color: '#a9c8eb', label: 'Original / Vigente = $41,012M', description: 'BAC sin modificaciones de alcance. Valor fijo de la Oferta Mercantil.' },
+        { color: '#1b5eab', label: 'Comprometido = $13,159M (54.2%)', description: 'Contratos y órdenes de compra adjudicados. Fuente: caso de negocio, hoja "Ejecucion vs Caso de Negocio".' },
+        { color: '#dc2626', label: 'Ejecutado = $8,741M (21.3%)', description: 'Costo real acumulado (materiales + administración). Fuente: Patio Sur_.xlsx.' },
+        { color: '#16a34a', label: 'Disponible = $27,853M', description: 'Vigente − Comprometido. Nota: $11,132M pendientes de negociar (40% del costo directo).' },
       ],
     },
     {
-      title: 'Flujo de Caja — Fuente: Flujo de caja patio sur 26 marzo.xlsx',
+      title: 'Flujo de Caja',
       items: [
-        { color: '#a9c8eb', label: 'Ingresos', description: 'Facturacion Feb $16,745M (cobrado $7,511M). Proximos: Abr $5,220M, Jun $2,000M, Oct $17,714M. Cobro con 9 meses de desfase.' },
-        { color: '#fbbf24', label: 'Egreso Proyectado', description: 'Pico en Feb-May 2026 ($7.2B-$3.6B/mes). Materiales pesados: cargadores, estructura, cables. Fuente: FC X OBRAS.' },
-        { color: '#dc2626', label: 'Egreso Real', description: 'Pagos reales registrados: Feb $7,593M + Mar $1,003M. Fuente: pagos Proyeccion de Pagos.xlsx.' },
-        { color: '#16a34a', label: 'Credito Puente', description: '$17,000M al IBR+2.85% (13.66% EA). Intereses totales ~$3,711M. Vencimiento bullet Feb 2027.' },
+        { color: '#a9c8eb', label: 'Ingresos proyectados', description: 'Feb 2026: $16,745M facturados (cobrado $7,511M). Próximos: Abr $5,220M, Jun $2,000M, Oct $17,714M. Desfase de cobro: ~9 meses.' },
+        { color: '#fbbf24', label: 'Egresos proyectados', description: 'Pico Feb–May 2026 ($7.2B–$3.6B/mes). Materiales pesados: cargadores, estructura, cables. Fuente: FC X OBRAS.' },
+        { color: '#dc2626', label: 'Egresos reales', description: 'Pagos reales registrados: Feb $7,593M + Mar $1,003M. Fuente: Proyeccion de Pagos.xlsx.' },
+        { color: '#16a34a', label: 'Crédito puente $17,000M', description: 'Tasa: IBR+2.85% (13.66% EA). Desembolso: 6 Feb 2026. Vencimiento bullet: Feb 2027. Intereses totales: ~$3,711M.' },
       ],
     },
     {
-      title: 'Analisis EVM',
+      title: 'Cómo se Actualizan los Datos',
       items: [
-        { icon: '📊', label: 'BAC=$41B, PV=$21.3B, EV=$21.4B, AC=$8.5B', description: 'PV y EV calculados sobre linea base revisada 19 mar. AC de Patio Sur_.xlsx (materiales + admin).' },
-        { icon: '📈', label: 'CPI = 2.51', description: 'Muy eficiente porque EV es sobre precio de venta y AC es costo real. Consistente con margen 28.2% + ahorro compras.' },
-        { icon: '📉', label: 'SPI Contractual = 0.73', description: '27% atrasado vs plan original. Causa raiz: problemas financieros PC Mejia (Patio Sur_.xlsx).' },
-        { icon: '🎯', label: 'EAC = $25,157M → Utilidad = $15,855M (38.7%)', description: 'Proyeccion bottom-up del equipo. Incluye intereses credito $3,711M. Superior al margen original de 28.2%.' },
+        { icon: '🔄', label: 'Datos dinámicos del Cronograma', description: 'SPI, EV, CPI y avance real se calculan automáticamente con la semana más reciente registrada en la página Cronograma.' },
+        { icon: '📅', label: 'Agregar nuevas semanas', description: 'Ve a Cronograma → haz clic en "+ S-XX" → edita los avances reales de cada actividad → guarda. El Dashboard se actualizará automáticamente.' },
+        { icon: '📊', label: 'Datos fijos (fuentes externas)', description: 'Costo Real (AC), EAC, presupuesto comprometido y flujo de caja provienen de archivos Excel del equipo de control de proyectos.' },
       ],
     },
   ],
@@ -394,12 +393,21 @@ export default function DashboardPage() {
     );
   }
 
+  // Valor fijo de la Oferta Mercantil — NO modificar, es el precio contractual
+  const VALOR_OFERTA_MERCANTIL = 41012884481;
+
   // Merge API data with hardcoded defaults for fields the API doesn't yet compute
   const data = {
     ...dashboardData,
     ...(apiData ? {
       project: { ...dashboardData.project, ...apiData.project },
-      budget_summary: { ...dashboardData.budget_summary, ...apiData.budget_summary },
+      budget_summary: {
+        ...dashboardData.budget_summary,
+        ...apiData.budget_summary,
+        // El BAC siempre es el valor de la Oferta Mercantil — la API no puede sobreescribirlo
+        total_original_budget: VALOR_OFERTA_MERCANTIL,
+        total_current_budget: VALOR_OFERTA_MERCANTIL,
+      },
       cash_flow_summary: apiData.cash_flow_summary,
       counts: { ...dashboardData.counts, ...apiData.counts },
       earned_value: { ...dashboardData.earned_value, ...apiData.earned_value },
@@ -538,7 +546,7 @@ export default function DashboardPage() {
           </div>
           <div className="p-3 rounded-lg bg-steel-50">
             <p className="text-steel-400 text-xs font-medium">Capacidad</p>
-            <p className="font-bold text-steel-800">116 buses: 42 articulados + 74 autobuses</p>
+            <p className="font-bold text-steel-800">131 buses: 42 bi-articulados + 44 articulados + 45 padrones dual</p>
           </div>
           <div className="p-3 rounded-lg bg-steel-50">
             <p className="text-steel-400 text-xs font-medium">Forma de Pago</p>
